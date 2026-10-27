@@ -36,7 +36,9 @@ def main() -> None:
                 if not thread.is_alive():
                     raise RuntimeError("Le serveur FastAPI n'a pas pu demarrer.")
                 if time.monotonic() >= deadline:
-                    raise TimeoutError("Le serveur FastAPI n'est pas pret apres 10 secondes.")
+                    raise TimeoutError(
+                        "Le serveur FastAPI n'est pas pret apres 10 secondes."
+                    )
                 time.sleep(0.05)
 
             webview.create_window("Trust Tower", f"http://localhost:{PORT}/")
