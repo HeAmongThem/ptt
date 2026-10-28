@@ -1,12 +1,30 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>POC Trust Tower: Login</title>
-    </head>
-    <body>
-        <h1>login</h1>
-        <a href="home.html">home</a>
-    </body>
-</html>
+{% extends "layout.html" %} {%block content%}
+<div class="h-75 w-75 align-self-center border p-2">
+    <h2>Connexion</h2>
+    <form class="d-flex flex-column gap-3 h-100" method="post" action="/login">
+        <div class="form-email">
+            <label for="staticEmail2">Email</label>
+            <input
+                type="text"
+                class="form-control"
+                id="staticEmail2"
+                placeholder="email@example.com"
+            />
+        </div>
+        <div class="form-password">
+            <label for="inputPassword2">Password</label>
+            <input
+                type="password"
+                class="form-control"
+                id="inputPassword2"
+                placeholder="Password"
+            />
+        </div>
+        <div class="form-submit align-self-center">
+            <button type="submit" class="btn btn-primary mb-3">
+                Confirm identity
+            </button>
+        </div>
+    </form>
+</div>
+{%endblock content%}

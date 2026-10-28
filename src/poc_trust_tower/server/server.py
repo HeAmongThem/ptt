@@ -21,9 +21,14 @@ async def index(request: Request):
 
 
 #Loggin==============================================================
-@app.post("/login", include_in_schema=False)
+@app.get("/login", include_in_schema=False)
 async def login(request: Request):
     return templates.TemplateResponse(request, "login.html")
+
+@app.post("/login", include_in_schema=False)
+async def login_post(request: Request):
+    return request.form
+    #return templates.TemplateResponse(request, "login.html")
 
 @app.post("/logout", include_in_schema=False)
 async def logout(request: Request):
