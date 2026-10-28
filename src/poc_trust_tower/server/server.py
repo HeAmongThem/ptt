@@ -1,13 +1,22 @@
 import os
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from poc_trust_tower.core.repository import (
+    VariationFilter,
+    distinct_categories,
+    distinct_statuses,
+    filter_indicators,
+    repoIndicators,
+    variation_kind,
+)
 
 app = FastAPI()
 app.mount("/statics", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 templates = Jinja2Templates(
     directory=os.path.join(os.path.dirname(__file__), "templates")
 )
+templates.env.globals["variation_kind"] = variation_kind
 
 
 
@@ -36,20 +45,63 @@ async def logout(request: Request):
 #Loggin==============================================================
 
 #Certifications=======================================================
-@app.get("my-certifications", include_in_schema=False)
-async def my_certifications(request: Request ):
-    pass
+@app.get("/my-certifications", include_in_schema=False)
+def my_certifications(
+    request: Request,
+    category: str = "",
+    variation: VariationFilter = "all",
+    bu: str = "",
+    bu_head: str = "",
+    cfo: str = "",
+):
+    filters = {
+        "category": category,
+        "variation": variation,
+        "bu": bu,
+        "bu_head": bu_head,
+        "cfo": cfo,
+    }
+    indicators = filter_indicators(repoIndicators, **filters) # type: ignore
+    visible_ids = {i.id for i in indicators}
+    return templates.TemplateResponse(
+        request,
+        "indicators.html",
+        {
+            "title": "Indicators",
+            "indicators": repoIndicators,
+            "visible_ids": visible_ids,
+            "total": len(repoIndicators),
+            "filters": filters,
+            "categories": distinct_categories(repoIndicators),
+            "statuses": distinct_statuses(repoIndicators),
+        },
+    )
 
-@app.get("my-certifications/{category}", include_in_schema=False)
+@app.get("/my-certifications/category/{category}", include_in_schema=False)
 async def my_certifications_by_category(request: Request, category:str):
     pass
 
-@app.get("my-certifications/{id}", include_in_schema=False)
-async def my_certifications_by_id(request: Request, id:int):
-    pass
+@app.get("/my-certifications/{id}", include_in_schema=False)
+def my_certifications_by_id(request: Request, id:str):
+    result = None
+    for indicator in repoIndicators:
+        if indicator.id == id:
+            result = indicator
+            break;
+    if result is not None:
+        return templates.TemplateResponse(
+            request,
+            "indicator.html",
+            {"title": result.nature_of_information, "indicator": result},
+        )
 
-@app.post("my-certifications/certify/{id}", include_in_schema=False)
-async def my_certifications_certify(request: Request, id:int):
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"indicator with id {id} not found")
+
+        
+        
+
+@app.delete("/my-certifications/{id}", include_in_schema=False)
+async def my_certifications_certify(request: Request, id:str):
     pass
 
 #Certifications=======================================================
@@ -94,7 +146,7 @@ async def admin_indicators_create(request: Request ):
 async def admin_indicators_update(request: Request ):
     pass
 
-@app.delete("/admin/indicators/delete/{id:int}", include_in_schema=False)
+@app.delete("/admin/indicators/delete/{id}", include_in_schema=False)
 async def admin_indicators_delete(request: Request, id:int):
     pass
 
@@ -116,7 +168,7 @@ async def admin_users_create(request: Request ):
 async def admin_users_update(request: Request ):
     pass
 
-@app.delete("/admin/users/delete/{id:int}", include_in_schema=False)
+@app.delete("/admin/users/delete/{id}", include_in_schema=False)
 async def admin_users_delete(request: Request, id:int):
     pass
 

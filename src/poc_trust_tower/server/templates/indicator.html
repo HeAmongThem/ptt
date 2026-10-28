@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+
+{% block header %}
+<h1 class="h3 my-3">Indicateur {{ indicator.id }}</h1>
+{% endblock header %}
+
+{% block content %}
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="/my-certifications" class="btn btn-outline-secondary btn-sm">&larr; Retour</a>
+        <span class="badge bg-primary fs-6">{{ indicator.category }}</span>
+    </div>
+
+    <div class="card">
+        <div class="card-header fw-bold">Détail de l'indicateur</div>
+        <table class="table table-sm table-striped mb-0">
+            <tbody>
+                <tr class="table-secondary"><th colspan="2">Identification</th></tr>
+                <tr><th scope="row" class="w-50">Id</th><td>{{ indicator.id }}</td></tr>
+                <tr><th scope="row">Catégorie</th><td>{{ indicator.category }}</td></tr>
+                <tr><th scope="row">Nature de l'information</th><td>{{ indicator.nature_of_information }}</td></tr>
+                <tr><th scope="row">Description / action attendue</th><td>{{ indicator.description_action_expected }}</td></tr>
+                <tr><th scope="row">Date de disponibilité</th><td>{{ indicator.availability_date.strftime("%d/%m/%Y") }}</td></tr>
+                <tr><th scope="row">Comité de validation</th><td>{{ indicator.validation_committee }}</td></tr>
+                <tr><th scope="row">Unité</th><td>{{ indicator.unit }}</td></tr>
+
+                <tr class="table-secondary"><th colspan="2">Valeurs</th></tr>
+                <tr><th scope="row">Valeur</th><td>{{ indicator.value }} {{ indicator.unit }}</td></tr>
+                <tr><th scope="row">Valeur précédente</th><td>{{ indicator.value_previous }} {{ indicator.unit }}</td></tr>
+                <tr>
+                    <th scope="row">Variation</th>
+                    <td class="{{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}">
+                        {{ "%+.2f"|format(indicator.variation) }} %
+                    </td>
+                </tr>
+                <tr><th scope="row">Commentaire / analyse</th><td>{{ indicator.comment_analysis }}</td></tr>
+                <tr><th scope="row">Commentaire EMR</th><td>{{ indicator.comment_emr_id }}</td></tr>
+
+                <tr class="table-secondary"><th colspan="2">Seuils</th></tr>
+                <tr><th scope="row">Certifié sans réserves</th><td>{{ indicator.thresold_certified_without_reserves }}</td></tr>
+                <tr><th scope="row">Acceptable</th><td>{{ indicator.thresold_acceptable }}</td></tr>
+                <tr><th scope="row">Certifié avec réserves significatives</th><td>{{ indicator.thresold_certified_with_significant_reserves }}</td></tr>
+                <tr><th scope="row">Non certifié</th><td>{{ indicator.thresold_not_certified }}</td></tr>
+
+                <tr class="table-secondary"><th colspan="2">Certification</th></tr>
+                <tr><th scope="row">BU</th><td>{{ indicator.certification_bu }}</td></tr>
+                <tr><th scope="row">Responsable BU</th><td>{{ indicator.certification_bu_head }}</td></tr>
+                <tr><th scope="row">CFO</th><td>{{ indicator.certification_cfo }}</td></tr>
+
+                <tr class="table-secondary"><th colspan="2">Historique</th></tr>
+                <tr><th scope="row">Créé le</th><td>{{ indicator.created_at.strftime("%d/%m/%Y %H:%M") }}</td></tr>
+                <tr><th scope="row">Mis à jour le</th><td>{{ indicator.updated_at.strftime("%d/%m/%Y %H:%M") }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock content %}
