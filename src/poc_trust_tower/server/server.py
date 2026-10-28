@@ -37,6 +37,15 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return error_response(request, exc.status_code, exc.detail)
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Ex. : "query.variation: Input should be 'all', 'up', 'down' or 'stable'"
+    detail = "; ".join(
+        f"{'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}" for err in exc.errors()
+    )
+    return error_response(request, status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     return error_response(request, status.HTTP_500_INTERNAL_SERVER_ERROR)

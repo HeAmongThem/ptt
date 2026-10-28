@@ -47,6 +47,9 @@ def test_filter_indicators_combined(client: TestClient) -> None:
 def test_filter_indicators_invalid_variation(client: TestClient) -> None:
     response = client.get("/my-certifications", params={"variation": "bogus"})
     assert response.status_code == 422
+    assert "text/html" in response.headers["content-type"]
+    assert ">422<" in response.text
+    assert "query.variation" in response.text
 
 
 def test_indicator_badge_links_to_category(client: TestClient) -> None:
