@@ -36,14 +36,14 @@ repoCategories: list[Category] = [
 # Users ===============================================================
 def _build_users() -> list[User]:
     users = [
-        User(id="1", email="admin@trust-tower.local", password="admin", business_unit=repoBusinessUnits[0], role=ROLE.ADMIN),
-        User(id="2", email="cfo@trust-tower.local", password="cfo", business_unit=repoBusinessUnits[0], role=ROLE.CFO),
+        User(id="1", email="admin@trust-tower.example", password="admin", business_unit=repoBusinessUnits[0], role=ROLE.ADMIN),
+        User(id="2", email="cfo@trust-tower.example", password="cfo", business_unit=repoBusinessUnits[0], role=ROLE.CFO),
     ]
     next_id = len(users) + 1
     for bu in repoBusinessUnits:
         slug = bu.id.lower()
-        users.append(User(id=str(next_id), email=f"bu.{slug}@trust-tower.local", password="bu", business_unit=bu, role=ROLE.BU))
-        users.append(User(id=str(next_id + 1), email=f"bu-head.{slug}@trust-tower.local", password="bu-head", business_unit=bu, role=ROLE.BU_HEAD))
+        users.append(User(id=str(next_id), email=f"bu.{slug}@trust-tower.example", password="bu", business_unit=bu, role=ROLE.BU))
+        users.append(User(id=str(next_id + 1), email=f"bu-head.{slug}@trust-tower.example", password="bu-head", business_unit=bu, role=ROLE.BU_HEAD))
         next_id += 2
     return users
 
