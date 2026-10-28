@@ -1,0 +1,2 @@
+# Templates Jinja2 : Prettier ne comprend pas la syntaxe {% %} et casse les balises.
+src/poc_trust_tower/server/templates/

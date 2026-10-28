@@ -27,12 +27,12 @@ def test_unknown_route_returns_404(client: TestClient) -> None:
 
 
 def test_filter_indicators_by_category(client: TestClient) -> None:
-    response = client.get("/my-certifications", params={"category": "Finance"})
+    response = client.get("/my-certifications", params={"category": "FIN"})
     assert response.status_code == 200
     html = response.text
-    assert 'data-category="Finance"' in html
-    assert '<option value="Finance" selected>' in html
-    assert "10</span> / 50 indicateur(s)" in html
+    assert 'data-category="FIN"' in html
+    assert '<option value="FIN" selected>Finance</option>' in html
+    assert '<span id="count-visible">10</span>' in html
 
 
 def test_filter_indicators_combined(client: TestClient) -> None:
@@ -41,9 +41,34 @@ def test_filter_indicators_combined(client: TestClient) -> None:
         params={"variation": "up", "cfo": "Certifie", "bu_head": "En attente"},
     )
     assert response.status_code == 200
-    assert "/ 50 indicateur(s)" in response.text
+    assert 'id="count-visible"' in response.text
 
 
 def test_filter_indicators_invalid_variation(client: TestClient) -> None:
     response = client.get("/my-certifications", params={"variation": "bogus"})
     assert response.status_code == 422
+
+
+def test_indicator_badge_links_to_category(client: TestClient) -> None:
+    response = client.get("/my-certifications/7")
+    assert response.status_code == 200
+    assert 'href="/my-certifications/category/' in response.text
+
+
+def test_indicators_by_category(client: TestClient) -> None:
+    response = client.get("/my-certifications/category/FIN")
+    assert response.status_code == 200
+    assert '<option value="FIN" selected>Finance</option>' in response.text
+    assert '<span id="count-visible">10</span>' in response.text
+
+
+def test_indicators_by_unknown_category(client: TestClient) -> None:
+    assert client.get("/my-certifications/category/XXX").status_code == 404
+
+
+def test_error_page_on_404(client: TestClient) -> None:
+    response = client.get("/my-certifications/does-not-exist")
+    assert response.status_code == 404
+    assert "text/html" in response.headers["content-type"]
+    assert "Something went wrong" in response.text
+    assert ">404<" in response.text

@@ -1,10 +1,55 @@
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+
+@dataclass
+class BusinessUnit:
+   id: str
+   name: str
+
+
+@dataclass
+class Category:
+   id: str
+   name: str
+
+
+@dataclass
+class User:
+   id: str
+   email: str
+   password: str
+   business_unit: BusinessUnit
+   role: ROLE
+
+
+class CertificationStatus(int,Enum):
+   pending                             = 1
+   certified_without_reserves           = 2
+   acceptable                          = 3
+   certified_with_significant_reserves   = 4
+   not_certified                        = 5
+
+
+class ROLE (str, Enum):
+   ADMIN   = "ADMIN"
+   BU      = "BU"
+   BU_HEAD = "BU_HEAD"
+   CFO     = "CFO"
+
+
+@dataclass
+class Campaign:
+   id: str
+   name: str
+   start_date: datetime
+   end_date: datetime
+   indicators: list[Indicator]
 
 @dataclass
 class Indicator:
    id: str
-   category: str
+   category: Category
    nature_of_information: str
    description_action_expected: str
    availability_date: datetime
@@ -22,5 +67,9 @@ class Indicator:
    certification_bu_head: str
    certification_cfo: str
    comment_emr_id: str
+   comment_bu: str
+   comment_bu_head: str
+   comment_cfo: str
+   business_unit: BusinessUnit
    created_at: datetime
    updated_at: datetime

@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+
+{% block header %}
+<h1 class="h3 my-3">Erreur</h1>
+{% endblock header %}
+
+{% block content %}
+<div class="d-flex flex-column justify-content-center align-items-center text-center gap-3">
+    <p class="display-1 fw-bold text-danger mb-0">{{ status_code }}</p>
+    <p class="lead mb-0">Something went wrong</p>
+    {% if detail %}
+    <p class="text-muted small mb-0">{{ detail }}</p>
+    {% endif %}
+    <a href="/" class="btn btn-primary btn-sm mt-2">&larr; Retour à l'accueil</a>
+</div>
+{% endblock content %}

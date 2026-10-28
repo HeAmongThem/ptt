@@ -2,11 +2,14 @@ import os
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from poc_trust_tower.core.repository import (
     VariationFilter,
     distinct_categories,
     distinct_statuses,
     filter_indicators,
+    get_category,
     repoIndicators,
     variation_kind,
 )
@@ -17,6 +20,27 @@ templates = Jinja2Templates(
     directory=os.path.join(os.path.dirname(__file__), "templates")
 )
 templates.env.globals["variation_kind"] = variation_kind
+
+
+#Errors==============================================================
+def error_response(request: Request, status_code: int, detail: str | None = None):
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {"title": f"Erreur {status_code}", "status_code": status_code, "detail": detail},
+        status_code=status_code,
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return error_response(request, exc.status_code, exc.detail)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    return error_response(request, status.HTTP_500_INTERNAL_SERVER_ERROR)
+#Errors==============================================================
 
 
 
@@ -78,8 +102,10 @@ def my_certifications(
     )
 
 @app.get("/my-certifications/category/{category}", include_in_schema=False)
-async def my_certifications_by_category(request: Request, category:str):
-    pass
+def my_certifications_by_category(request: Request, category: str):
+    if get_category(category) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"category {category} not found")
+    return my_certifications(request, category=category)
 
 @app.get("/my-certifications/{id}", include_in_schema=False)
 def my_certifications_by_id(request: Request, id:str):

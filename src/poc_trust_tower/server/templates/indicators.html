@@ -1,28 +1,30 @@
-{% extends "layout.html" %}
-
-{% block header %}
+{% extends "layout.html" %} {% block header %}
 <h1 class="h3 my-3">Mes certifications</h1>
-{% endblock header %}
-
-{% block content %}
+{% endblock header %} {% block content %}
 <div class="container-fluid py-3">
-    <form id="filters" method="get" action="/my-certifications" class="row g-2 align-items-end mb-3">
+    <form
+        id="filters"
+        method="get"
+        action="/my-certifications"
+        class="row g-2 align-items-end mb-3"
+    >
         <div class="col-md-2">
             <label for="f-category" class="form-label small mb-1">Catégorie</label>
             <select id="f-category" name="category" class="form-select form-select-sm">
                 <option value="">Toutes</option>
                 {% for c in categories %}
-                <option value="{{ c }}" {% if filters.category == c %}selected{% endif %}>{{ c }}</option>
+                {% set sel = "selected" if filters.category == c.id else "" %}
+                <option value="{{ c.id }}" {{ sel }}>{{ c.name }}</option>
                 {% endfor %}
             </select>
         </div>
         <div class="col-md-2">
             <label for="f-variation" class="form-label small mb-1">Variation</label>
             <select id="f-variation" name="variation" class="form-select form-select-sm">
-                <option value="all" {% if filters.variation == "all" %}selected{% endif %}>Toutes</option>
-                <option value="up" {% if filters.variation == "up" %}selected{% endif %}>En hausse</option>
-                <option value="down" {% if filters.variation == "down" %}selected{% endif %}>En baisse</option>
-                <option value="stable" {% if filters.variation == "stable" %}selected{% endif %}>Stable</option>
+                {% for value, label in [("all", "Toutes"), ("up", "En hausse"), ("down", "En baisse"), ("stable", "Stable")] %}
+                {% set sel = "selected" if filters.variation == value else "" %}
+                <option value="{{ value }}" {{ sel }}>{{ label }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-md-2">
@@ -30,7 +32,8 @@
             <select id="f-bu" name="bu" class="form-select form-select-sm">
                 <option value="">Tous</option>
                 {% for s in statuses %}
-                <option value="{{ s }}" {% if filters.bu == s %}selected{% endif %}>{{ s }}</option>
+                {% set sel = "selected" if filters.bu == s else "" %}
+                <option value="{{ s }}" {{ sel }}>{{ s }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -39,7 +42,8 @@
             <select id="f-bu-head" name="bu_head" class="form-select form-select-sm">
                 <option value="">Tous</option>
                 {% for s in statuses %}
-                <option value="{{ s }}" {% if filters.bu_head == s %}selected{% endif %}>{{ s }}</option>
+                {% set sel = "selected" if filters.bu_head == s else "" %}
+                <option value="{{ s }}" {{ sel }}>{{ s }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -48,7 +52,8 @@
             <select id="f-cfo" name="cfo" class="form-select form-select-sm">
                 <option value="">Tous</option>
                 {% for s in statuses %}
-                <option value="{{ s }}" {% if filters.cfo == s %}selected{% endif %}>{{ s }}</option>
+                {% set sel = "selected" if filters.cfo == s else "" %}
+                <option value="{{ s }}" {{ sel }}>{{ s }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -59,15 +64,20 @@
     </form>
 
     <p class="text-muted small">
-        <span id="count-visible">{{ visible_ids|length }}</span> / {{ total }} indicateur(s)
+        <span id="count-visible">{{ visible_ids|length }}</span> / {{ total }}
+        indicateur(s)
     </p>
 
     <div class="table-responsive">
-        <table id="indicators-table" class="table table-sm table-striped table-hover align-middle">
+        <table
+            id="indicators-table"
+            class="table table-sm table-striped table-hover align-middle"
+        >
             <thead class="table-light">
                 <tr>
                     <th scope="col">Id</th>
                     <th scope="col">Catégorie</th>
+                    <th scope="col">Business unit</th>
                     <th scope="col">Nature</th>
                     <th scope="col">Description / action attendue</th>
                     <th scope="col">Comité</th>
@@ -83,34 +93,59 @@
             </thead>
             <tbody>
                 {% for indicator in indicators %}
-                <tr class="{{ '' if indicator.id in visible_ids else 'd-none' }}"
+                <tr
+                    class="{{ '' if indicator.id in visible_ids else 'd-none' }}"
                     role="link"
                     style="cursor: pointer"
                     data-href="/my-certifications/{{ indicator.id }}"
-                    data-category="{{ indicator.category }}"
+                    data-category="{{ indicator.category.id }}"
                     data-variation="{{ variation_kind(indicator) }}"
                     data-bu="{{ indicator.certification_bu }}"
                     data-bu-head="{{ indicator.certification_bu_head }}"
-                    data-cfo="{{ indicator.certification_cfo }}">
-                    <td><a href="/my-certifications/{{ indicator.id }}">{{ indicator.id }}</a></td>
-                    <td><span class="badge bg-primary">{{ indicator.category }}</span></td>
+                    data-cfo="{{ indicator.certification_cfo }}"
+                >
+                    <td>
+                        <a href="/my-certifications/{{ indicator.id }}"
+                            >{{ indicator.id }}</a
+                        >
+                    </td>
+                    <td>
+                        <a href="/my-certifications/category/{{ indicator.category.id }}"
+                           class="badge bg-primary text-decoration-none"
+                           >{{ indicator.category.name }}</a
+                        >
+                    </td>
+                    <td>{{ indicator.business_unit.name }}</td>
                     <td>{{ indicator.nature_of_information }}</td>
                     <td>{{ indicator.description_action_expected }}</td>
                     <td>{{ indicator.validation_committee }}</td>
-                    <td class="text-end">{{ indicator.value }} {{ indicator.unit }}</td>
-                    <td class="text-end">{{ indicator.value_previous }} {{ indicator.unit }}</td>
-                    <td class="text-end {{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}">
+                    <td class="text-end">
+                        {{ indicator.value }} {{ indicator.unit }}
+                    </td>
+                    <td class="text-end">
+                        {{ indicator.value_previous }} {{ indicator.unit }}
+                    </td>
+                    <td
+                        class="text-end {{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}"
+                    >
                         {{ "%+.2f"|format(indicator.variation) }} %
                     </td>
                     <td>{{ indicator.certification_bu }}</td>
                     <td>{{ indicator.certification_bu_head }}</td>
                     <td>{{ indicator.certification_cfo }}</td>
-                    <td>{{ indicator.availability_date.strftime("%d/%m/%Y") }}</td>
+                    <td>
+                        {{ indicator.availability_date.strftime("%d/%m/%Y") }}
+                    </td>
                     <td>{{ indicator.updated_at.strftime("%d/%m/%Y") }}</td>
                 </tr>
                 {% endfor %}
-                <tr id="empty-row" class="{{ '' if not visible_ids else 'd-none' }}">
-                    <td colspan="13" class="text-center text-muted">Aucun indicateur ne correspond aux filtres.</td>
+                <tr
+                    id="empty-row"
+                    class="{{ '' if not visible_ids else 'd-none' }}"
+                >
+                    <td colspan="14" class="text-center text-muted">
+                        Aucun indicateur ne correspond aux filtres.
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -118,51 +153,61 @@
 </div>
 
 <script>
-(() => {
-    const form = document.getElementById("filters");
-    const rows = Array.from(document.querySelectorAll("#indicators-table tbody tr[data-category]"));
-    const emptyRow = document.getElementById("empty-row");
-    const countVisible = document.getElementById("count-visible");
-    // Mapping nom de champ -> attribut data-* de la ligne.
-    const fields = {
-        category: "category",
-        variation: "variation",
-        bu: "bu",
-        bu_head: "buHead",
-        cfo: "cfo",
-    };
+    (() => {
+        const form = document.getElementById("filters");
+        const rows = Array.from(
+            document.querySelectorAll(
+                "#indicators-table tbody tr[data-category]",
+            ),
+        );
+        const emptyRow = document.getElementById("empty-row");
+        const countVisible = document.getElementById("count-visible");
+        // Mapping nom de champ -> attribut data-* de la ligne.
+        const fields = {
+            category: "category",
+            variation: "variation",
+            bu: "bu",
+            bu_head: "buHead",
+            cfo: "cfo",
+        };
 
-    const applyFilters = () => {
-        const data = new FormData(form);
-        let visible = 0;
-        for (const row of rows) {
-            const match = Object.entries(fields).every(([name, attr]) => {
-                const wanted = data.get(name) || "";
-                if (!wanted || wanted === "all") return true;
-                return row.dataset[attr] === wanted;
+        const applyFilters = () => {
+            const data = new FormData(form);
+            let visible = 0;
+            for (const row of rows) {
+                const match = Object.entries(fields).every(([name, attr]) => {
+                    const wanted = data.get(name) || "";
+                    if (!wanted || wanted === "all") return true;
+                    return row.dataset[attr] === wanted;
+                });
+                row.classList.toggle("d-none", !match);
+                if (match) visible++;
+            }
+            emptyRow.classList.toggle("d-none", visible > 0);
+            countVisible.textContent = visible;
+
+            // Synchronise l'URL pour que le filtrage reste partageable / rechargeable.
+            const params = new URLSearchParams();
+            for (const [name, value] of data.entries()) {
+                if (value && value !== "all") params.set(name, value);
+            }
+            const query = params.toString();
+            history.replaceState(
+                null,
+                "",
+                query ? `?${query}` : location.pathname,
+            );
+        };
+
+        form.addEventListener("change", applyFilters);
+
+        // Double-clic sur une ligne -> page de détail de l'indicateur.
+        document
+            .querySelector("#indicators-table tbody")
+            .addEventListener("dblclick", (event) => {
+                const row = event.target.closest("tr[data-href]");
+                if (row) window.location.href = row.dataset.href;
             });
-            row.classList.toggle("d-none", !match);
-            if (match) visible++;
-        }
-        emptyRow.classList.toggle("d-none", visible > 0);
-        countVisible.textContent = visible;
-
-        // Synchronise l'URL pour que le filtrage reste partageable / rechargeable.
-        const params = new URLSearchParams();
-        for (const [name, value] of data.entries()) {
-            if (value && value !== "all") params.set(name, value);
-        }
-        const query = params.toString();
-        history.replaceState(null, "", query ? `?${query}` : location.pathname);
-    };
-
-    form.addEventListener("change", applyFilters);
-
-    // Double-clic sur une ligne -> page de détail de l'indicateur.
-    document.querySelector("#indicators-table tbody").addEventListener("dblclick", (event) => {
-        const row = event.target.closest("tr[data-href]");
-        if (row) window.location.href = row.dataset.href;
-    });
-})();
+    })();
 </script>
 {% endblock content %}

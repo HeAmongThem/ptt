@@ -8,7 +8,9 @@
 <div class="container py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <a href="/my-certifications" class="btn btn-outline-secondary btn-sm">&larr; Retour</a>
-        <span class="badge bg-primary fs-6">{{ indicator.category }}</span>
+        <a href="/my-certifications/category/{{ indicator.category.id }}"
+           class="badge bg-primary fs-6 text-decoration-none"
+           title="Voir tous les indicateurs de la catégorie {{ indicator.category.name }}">{{ indicator.category.name }}</a>
     </div>
 
     <div class="card">
@@ -17,7 +19,8 @@
             <tbody>
                 <tr class="table-secondary"><th colspan="2">Identification</th></tr>
                 <tr><th scope="row" class="w-50">Id</th><td>{{ indicator.id }}</td></tr>
-                <tr><th scope="row">Catégorie</th><td>{{ indicator.category }}</td></tr>
+                <tr><th scope="row">Catégorie</th><td>{{ indicator.category.name }}</td></tr>
+                <tr><th scope="row">Business unit</th><td>{{ indicator.business_unit.name }}</td></tr>
                 <tr><th scope="row">Nature de l'information</th><td>{{ indicator.nature_of_information }}</td></tr>
                 <tr><th scope="row">Description / action attendue</th><td>{{ indicator.description_action_expected }}</td></tr>
                 <tr><th scope="row">Date de disponibilité</th><td>{{ indicator.availability_date.strftime("%d/%m/%Y") }}</td></tr>
@@ -44,8 +47,11 @@
 
                 <tr class="table-secondary"><th colspan="2">Certification</th></tr>
                 <tr><th scope="row">BU</th><td>{{ indicator.certification_bu }}</td></tr>
+                <tr><th scope="row">Commentaire BU</th><td>{{ indicator.comment_bu }}</td></tr>
                 <tr><th scope="row">Responsable BU</th><td>{{ indicator.certification_bu_head }}</td></tr>
+                <tr><th scope="row">Commentaire responsable BU</th><td>{{ indicator.comment_bu_head }}</td></tr>
                 <tr><th scope="row">CFO</th><td>{{ indicator.certification_cfo }}</td></tr>
+                <tr><th scope="row">Commentaire CFO</th><td>{{ indicator.comment_cfo }}</td></tr>
 
                 <tr class="table-secondary"><th colspan="2">Historique</th></tr>
                 <tr><th scope="row">Créé le</th><td>{{ indicator.created_at.strftime("%d/%m/%Y %H:%M") }}</td></tr>
