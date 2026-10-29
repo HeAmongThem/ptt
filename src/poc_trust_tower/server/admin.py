@@ -14,9 +14,14 @@ from poc_trust_tower.core.schemas import (
     UserCreateSchema,
     UserUpdateSchema,
 )
+from poc_trust_tower.server.auth import require_role
 from poc_trust_tower.server.templating import templates
 
-router = APIRouter(prefix="/admin", include_in_schema=False)
+router = APIRouter(
+    prefix="/admin",
+    include_in_schema=False,
+    dependencies=[require_role(ROLE.ADMIN)],
+)
 
 Tab = Literal["business-units", "categories", "campaigns", "users", "indicators"]
 

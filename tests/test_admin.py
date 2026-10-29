@@ -3,12 +3,11 @@ from fastapi.testclient import TestClient
 
 from poc_trust_tower.core import repository as repo
 from poc_trust_tower.core.security import verify_password
-from poc_trust_tower.server.server import app
 
 
 @pytest.fixture
-def client() -> TestClient:
-    return TestClient(app, follow_redirects=False)
+def client(admin_client: TestClient) -> TestClient:
+    return admin_client
 
 
 INDICATOR_FORM = {

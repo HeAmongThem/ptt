@@ -1,12 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from poc_trust_tower.server.server import app
 
 
 @pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
+def client(user_client: TestClient) -> TestClient:
+    return user_client
 
 
 def test_index_returns_home_page(client: TestClient) -> None:
@@ -15,8 +14,8 @@ def test_index_returns_home_page(client: TestClient) -> None:
     assert "text/html" in response.headers["content-type"]
 
 
-def test_login_page_is_served(client: TestClient) -> None:
-    response = client.get("/login")
+def test_login_page_is_served(anonymous_client: TestClient) -> None:
+    response = anonymous_client.get("/login")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
 
