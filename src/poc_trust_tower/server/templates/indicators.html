@@ -129,7 +129,10 @@
         <td class="text-nowrap">{{ indicator.availability_date.strftime("%d/%m/%Y") }}</td>
         <td>{{ indicator.validation_committee }}</td>
         <td>{{ indicator.unit }}</td>
-        <td class="text-end">{{ indicator.value }}</td>
+        <td class="text-end">
+            <a href="/my-certifications/{{ indicator.id }}?view=audit#audit-trail" class="text-decoration-none fw-semibold"
+               title="Voir l'audit trail de l'indicateur {{ indicator.id }}">{{ indicator.value }}</a>
+        </td>
         <td class="text-end">{{ indicator.value_previous }}</td>
         <td class="text-end text-nowrap {{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}">
             {{ "%+.2f"|format(indicator.variation) }} %

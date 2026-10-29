@@ -253,3 +253,26 @@ def test_campaign_filters(user_client: TestClient) -> None:
     assert len(one) == len(repo.campaign_indicator_ids(1))
     assert user_client.get("/my-certifications", params={"campaign": "abc"}).status_code == 422
     assert user_client.get("/my-certifications", params={"campaign": ""}).status_code == 200
+
+
+# Vue détails / audit sur la fiche ======================================
+def test_value_cells_link_to_audit_trail(bu_client: TestClient) -> None:
+    html = bu_client.get("/my-certifications").text
+    assert f'href="/my-certifications/{DIG_INDICATOR}?view=audit#audit-trail"' in html
+    detail = bu_client.get(f"/my-certifications/{DIG_INDICATOR}").text
+    assert 'class="text-decoration-none fw-semibold js-show-audit"' in detail
+
+
+def test_detail_view_menu(bu_client: TestClient) -> None:
+    import re
+    def visible(view):
+        html = bu_client.get(f"/my-certifications/{DIG_INDICATOR}", params={"view": view} if view else {}).text
+        details_hidden = re.search(r'id="view-details" class="([^"]*)"', html).group(1)
+        audit_hidden = re.search(r'id="view-audit" class="([^"]*)"', html).group(1)
+        active = re.search(r'class="nav-link py-1 px-3 active" href="\?view=(\w+)"', html).group(1)
+        return ("d-none" not in details_hidden, "d-none" not in audit_hidden, active)
+
+    assert visible(None) == (True, True, "both")       # défaut : les deux cartes
+    assert visible("details") == (True, False, "details")
+    assert visible("audit") == (False, True, "audit")
+    assert bu_client.get(f"/my-certifications/{DIG_INDICATOR}", params={"view": "bogus"}).status_code == 422

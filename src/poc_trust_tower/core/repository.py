@@ -352,6 +352,62 @@ AUDITED_FIELDS: tuple[str, ...] = (
 )
 
 
+def _build_audit_seed() -> list[IndicatorAudit]:
+    """50 entrées de démonstration : créations par l'admin, certifications par des
+    utilisateurs dont le rôle et la BU correspondent à l'indicateur (la dernière
+    certification d'un champ reflète le statut courant), quelques mises à jour."""
+    admin = repoUsers[0]
+    cfo = next(u for u in repoUsers if u.role == ROLE.CFO)
+    by_bu_role = {(u.business_unit.id, u.role): u for u in repoUsers if u.role in (ROLE.BU, ROLE.BU_HEAD)}
+    entries: list[IndicatorAudit] = []
+
+    def add(indicator: Indicator, actor: User, action: str, field: str, old: str, new: str, days_ago: int, hour: int) -> None:
+        entries.append(
+            IndicatorAudit(
+                id=len(entries) + 1,
+                indicator_id=indicator.id,
+                user_id=actor.id,
+                user_email=actor.email,
+                action=action,
+                field=field,
+                old_value=old,
+                new_value=new,
+                timestamp=_NOW - timedelta(days=days_ago, hours=-hour),
+            )
+        )
+
+    # 12 créations (une par indicateur de la campagne active) il y a ~55 jours.
+    for n, indicator in enumerate(i for i in repoIndicators if i.id % 4 == 3):
+        add(indicator, admin, "created", "", "", indicator.description_action_expected, 55 - n % 3, 9 + n % 4)
+
+    # 30 certifications : statut puis commentaire, par niveau, sur 15 indicateurs.
+    levels = [
+        (ROLE.BU, "certification_bu", "comment_bu"),
+        (ROLE.BU_HEAD, "certification_bu_head", "comment_bu_head"),
+        (ROLE.CFO, "certification_cfo", "comment_cfo"),
+    ]
+    for n, indicator in enumerate(repoIndicators[:15]):
+        role, status_field, comment_field = levels[n % 3]
+        actor = cfo if role == ROLE.CFO else by_bu_role[(indicator.business_unit.id, role)]
+        current = getattr(indicator, status_field)
+        previous = _STATUSES[(_STATUSES.index(current) + 2) % len(_STATUSES)]
+        days_ago, hour = 2 + (n * 3) % 40, 8 + n % 9
+        add(indicator, actor, "certified", status_field, previous, current, days_ago, hour)
+        add(indicator, actor, "certified", comment_field, "", getattr(indicator, comment_field), days_ago, hour)
+
+    # 8 mises à jour par l'admin (valeurs précédentes plausibles).
+    for n, indicator in enumerate(repoIndicators[20:28]):
+        field = ("value", "unit", "validation_committee", "thresold_acceptable")[n % 4]
+        new = _audit_repr(getattr(indicator, field))
+        old = {"value": _audit_repr(round(indicator.value * 0.9, 2)), "unit": "n/a", "validation_committee": "COMEX",
+               "thresold_acceptable": "70.0"}[field]
+        if old == new:
+            old = old + " (ancien)"
+        add(indicator, admin, "updated", field, old, new, 10 + n * 4, 14 + n % 3)
+
+    return entries
+
+
 def _audit_repr(value) -> str:
     """Représentation textuelle stable d'une valeur pour l'audit."""
     if value is None:
@@ -361,6 +417,9 @@ def _audit_repr(value) -> str:
     if isinstance(value, datetime):
         return value.strftime("%Y-%m-%d %H:%M")
     return str(value)
+
+
+repoIndicatorAudits.extend(_build_audit_seed())
 
 
 def _snapshot(indicator: Indicator) -> dict[str, str]:

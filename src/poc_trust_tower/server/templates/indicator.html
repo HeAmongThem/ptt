@@ -17,6 +17,16 @@
     <div class="alert alert-success py-2">Your certification has been saved.</div>
     {% endif %}
 
+    <ul class="nav nav-pills nav-sm mb-3" id="view-menu" role="tablist">
+        {% for key, label in [("both", "Both"), ("details", "Details"), ("audit", "Audit trail")] %}
+        {% set active = "active" if view == key else "" %}
+        <li class="nav-item" role="presentation">
+            <a class="nav-link py-1 px-3 {{ active }}" href="?view={{ key }}" data-view="{{ key }}">{{ label }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <div id="view-details" class="{{ 'd-none' if view == 'audit' else '' }}">
     <div class="table-card">
         <table class="table table-modern table-detail">
             <tbody>
@@ -31,7 +41,13 @@
                 <tr><th scope="row">Unit</th><td>{{ indicator.unit }}</td></tr>
 
                 <tr class="table-section"><th colspan="2">Values</th></tr>
-                <tr><th scope="row">Value</th><td>{{ indicator.value }} {{ indicator.unit }}</td></tr>
+                <tr>
+                    <th scope="row">Value</th>
+                    <td>
+                        <a href="?view=audit#audit-trail" class="text-decoration-none fw-semibold js-show-audit"
+                           title="Show the audit trail of this indicator">{{ indicator.value }} {{ indicator.unit }}</a>
+                    </td>
+                </tr>
                 <tr><th scope="row">Previous value</th><td>{{ indicator.value_previous }} {{ indicator.unit }}</td></tr>
                 <tr>
                     <th scope="row">Variation</th>
@@ -63,6 +79,9 @@
         </table>
     </div>
 
+    </div>
+
+    <div id="view-audit" class="{{ 'd-none' if view == 'details' else '' }}">
     <div class="card card-modern mt-3" id="audit-trail">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span>Audit trail</span>
@@ -99,10 +118,11 @@
         <div class="card-body text-muted small">No change recorded yet.</div>
         {% endif %}
     </div>
+    </div>
 
     {% if can_certify %}
     {% set level = {"BU": "BU", "BU_HEAD": "BU head", "CFO": "CFO"}[current_user.role.value] %}
-    <div class="card card-modern mt-3">
+    <div class="card card-modern mt-3 js-details-only {{ 'd-none' if view == 'audit' else '' }}">
         <div class="card-header">Your certification — {{ level }}</div>
         <div class="card-body">
             <form method="post" action="/my-certifications/{{ indicator.id }}/certify" class="row g-3">
@@ -129,6 +149,36 @@
 </div>
 
 <script>
+    // Menu Both / Details / Audit trail : bascule sans rechargement, URL synchronisée.
+    (() => {
+        const sections = {
+            details: [document.getElementById("view-details"), ...document.querySelectorAll(".js-details-only")],
+            audit: [document.getElementById("view-audit")],
+        };
+        const links = Array.from(document.querySelectorAll("#view-menu [data-view]"));
+        const show = (view, { scrollToAudit = false } = {}) => {
+            for (const [name, nodes] of Object.entries(sections)) {
+                const visible = view === "both" || view === name;
+                for (const node of nodes) if (node) node.classList.toggle("d-none", !visible);
+            }
+            for (const link of links) link.classList.toggle("active", link.dataset.view === view);
+            const url = new URL(location.href);
+            url.searchParams.set("view", view);
+            url.searchParams.delete("saved");
+            history.replaceState(null, "", url.pathname + url.search + (scrollToAudit ? "#audit-trail" : ""));
+            if (scrollToAudit) document.getElementById("audit-trail").scrollIntoView({ behavior: "smooth", block: "start" });
+        };
+        for (const link of links) {
+            link.addEventListener("click", (event) => { event.preventDefault(); show(link.dataset.view); });
+        }
+        for (const trigger of document.querySelectorAll(".js-show-audit")) {
+            trigger.addEventListener("click", (event) => { event.preventDefault(); show("audit", { scrollToAudit: true }); });
+        }
+        if (location.hash === "#audit-trail") {
+            document.getElementById("audit-trail").scrollIntoView({ block: "start" });
+        }
+    })();
+
     // Le select de statut adopte la couleur de la valeur choisie.
     (() => {
         const select = document.getElementById("f-status");

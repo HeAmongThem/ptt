@@ -43,6 +43,16 @@ def _run(action, *args):
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
 
+def _optional_int(value: str, name: str) -> int | None:
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"query.{name}: must be an integer") from exc
+
+
 def _form_context(**extra) -> dict:
     return {
         "categories": repo.repoCategories,
@@ -58,15 +68,19 @@ def _form_context(**extra) -> dict:
 def admin_index(
     request: Request,
     tab: Tab = "categories",
-    campaign: int | None = None,
-    audit_indicator: int | None = None,
-    audit_user: int | None = None,
+    campaign: str = "",
+    audit_indicator: str = "",
+    audit_user: str = "",
     audit_action: str = "",
 ):
+    # Les champs vides des formulaires GET arrivent en chaîne vide : on les traite comme "non renseigné".
+    campaign_id = _optional_int(campaign, "campaign")
+    audit_indicator_id = _optional_int(audit_indicator, "audit_indicator")
+    audit_user_id = _optional_int(audit_user, "audit_user")
     # Onglet Campagnes <-> Indicateurs : campagne sélectionnée (la première par défaut).
     selected_campaign = None
     if tab == "campaign-indicators" and repo.repoCampaigns:
-        selected_campaign = next((c for c in repo.repoCampaigns if c.id == campaign), repo.repoCampaigns[0])
+        selected_campaign = next((c for c in repo.repoCampaigns if c.id == campaign_id), repo.repoCampaigns[0])
     return templates.TemplateResponse(
         request,
         "admin/index.html",
@@ -94,9 +108,9 @@ def admin_index(
             },
             "link_count": len(repo.repoCampaignIndicators),
             # Onglet Audit
-            "audit_entries": repo.audit_trail(audit_indicator, audit_user, audit_action, limit=500) if tab == "audit" else [],
+            "audit_entries": repo.audit_trail(audit_indicator_id, audit_user_id, audit_action, limit=500) if tab == "audit" else [],
             "audit_total": len(repo.repoIndicatorAudits),
-            "audit_filters": {"indicator": audit_indicator, "user": audit_user, "action": audit_action},
+            "audit_filters": {"indicator": audit_indicator_id, "user": audit_user_id, "action": audit_action},
             "audit_actions": ["created", "imported", "updated", "certified", "deleted"],
         },
     )

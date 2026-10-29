@@ -89,6 +89,12 @@ def test_admin_audit_tab_and_filters(admin_client: TestClient, bu_client: TestCl
     html = admin_client.get("/admin", params={"tab": "audit", "audit_indicator": 999999}).text
     assert "Aucune entrée d'audit." in html
 
+    # Le formulaire envoie les champs vides : ils doivent être ignorés, pas rejetés.
+    response = admin_client.get("/admin", params={"tab": "audit", "audit_indicator": "", "audit_user": "", "audit_action": ""})
+    assert response.status_code == 200
+    assert admin_client.get("/admin", params={"tab": "audit", "audit_indicator": "abc"}).status_code == 422
+    assert admin_client.get("/admin", params={"tab": "campaign-indicators", "campaign": ""}).status_code == 200
+
 
 def test_audit_tab_requires_admin(user_client: TestClient) -> None:
     assert user_client.get("/admin", params={"tab": "audit"}).status_code == 403

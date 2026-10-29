@@ -131,7 +131,13 @@ def _get_visible_indicator(indicator_id: int, user):
 
 
 @router.get("/{indicator_id}")
-def my_certifications_by_id(request: Request, indicator_id: int, user: CurrentUserDep, saved: bool = False):
+def my_certifications_by_id(
+    request: Request,
+    indicator_id: int,
+    user: CurrentUserDep,
+    saved: bool = False,
+    view: Literal["both", "details", "audit"] = "both",
+):
     indicator = _get_visible_indicator(indicator_id, user)
     fields = repo.CERTIFICATION_FIELDS.get(user.role)
     denial = repo.certification_denial(user, indicator)
@@ -150,6 +156,7 @@ def my_certifications_by_id(request: Request, indicator_id: int, user: CurrentUs
             "statuses": [s.name for s in CertificationStatus],
             "indicator_campaigns": repo.campaigns_of_indicator(indicator.id),
             "audit_trail": repo.indicator_audit_trail(indicator.id),
+            "view": view,
         },
     )
 
