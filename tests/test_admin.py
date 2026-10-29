@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from poc_trust_tower.core import repository as repo
+from poc_trust_tower.core.security import verify_password
 from poc_trust_tower.server.server import app
 
 
@@ -103,9 +104,8 @@ def test_user_crud(client: TestClient) -> None:
     update = {"email": "y@trust-tower.example", "password": "", "business_unit_id": "RET", "role": "CFO"}
     assert client.post(f"/admin/users/{user_id}", data=update).status_code == 303
     user = repo.get_user(user_id)
-    assert (user.email, user.password, user.role.value, user.business_unit.id) == (
-        "y@trust-tower.example", "abcd", "CFO", "RET",
-    )
+    assert (user.email, user.role.value, user.business_unit.id) == ("y@trust-tower.example", "CFO", "RET")
+    assert verify_password("abcd", user.password)  # mot de passe vide = inchangé, et stocké haché
     assert client.post(f"/admin/users/{user_id}", data={**update, "password": "ab"}).status_code == 422
 
     assert client.post(f"/admin/users/{user_id}/delete").status_code == 303

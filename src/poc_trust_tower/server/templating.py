@@ -12,8 +12,16 @@ STATUS_LABELS = {
     "not_certified": "Non certifié",
 }
 
+def _current_user(request) -> dict:
+    # Import local : auth.py importe `templates` depuis ce module.
+    from poc_trust_tower.server.auth import get_current_user
+
+    return {"current_user": get_current_user(request)}
+
+
 templates = Jinja2Templates(
-    directory=os.path.join(os.path.dirname(__file__), "templates")
+    directory=os.path.join(os.path.dirname(__file__), "templates"),
+    context_processors=[_current_user],
 )
 templates.env.globals["variation_kind"] = variation_kind
 templates.env.filters["status_label"] = lambda value: STATUS_LABELS.get(value, value)

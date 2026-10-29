@@ -2,7 +2,9 @@ import os
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.sessions import SessionMiddleware
 from poc_trust_tower.core.repository import (
     VariationFilter,
     distinct_categories,
@@ -12,13 +14,19 @@ from poc_trust_tower.core.repository import (
     repoIndicators,
 )
 from poc_trust_tower.server.admin import router as admin_router
+from poc_trust_tower.server.auth import NotAuthenticated
+from poc_trust_tower.server.auth import router as auth_router
 from poc_trust_tower.server.templating import templates
 
-app = FastAPI()
-app.mount("/statics", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
-app.include_router(admin_router)
+# À définir en production ; la valeur par défaut ne sert qu'au développement.
+SECRET_KEY = os.environ.get("TRUST_TOWER_SECRET_KEY", "dev-only-change-me")
+SESSION_MAX_AGE = 8 * 60 * 60
 
-SALT = b'$2b$12$DlxERftUa4BJsKvUhmbtVO'
+app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=SESSION_MAX_AGE, same_site="lax")
+app.mount("/statics", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
+app.include_router(auth_router)
+app.include_router(admin_router)
 
 #Errors==============================================================
 def error_response(request: Request, status_code: int, detail: str | None = None):
@@ -28,6 +36,11 @@ def error_response(request: Request, status_code: int, detail: str | None = None
         {"title": f"Erreur {status_code}", "status_code": status_code, "detail": detail},
         status_code=status_code,
     )
+
+
+@app.exception_handler(NotAuthenticated)
+async def not_authenticated_handler(request: Request, exc: NotAuthenticated):
+    return RedirectResponse(f"/login?next={exc.next_url}", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -59,21 +72,6 @@ async def index(request: Request):
         request, "home.html", context={"datas": datas, "title": "home"}
     )
 
-
-#Loggin==============================================================
-@app.get("/login", include_in_schema=False)
-async def login(request: Request):
-    return templates.TemplateResponse(request, "login.html")
-
-@app.post("/login", include_in_schema=False)
-async def login_post(request: Request):
-    return request.form
-    #return templates.TemplateResponse(request, "login.html")
-
-@app.post("/logout", include_in_schema=False)
-async def logout(request: Request):
-    pass
-#Loggin==============================================================
 
 #Certifications=======================================================
 @app.get("/my-certifications", include_in_schema=False)

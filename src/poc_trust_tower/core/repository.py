@@ -10,6 +10,7 @@ from poc_trust_tower.core.model import (
     Indicator,
     User,
 )
+from poc_trust_tower.core.security import DEMO_ROUNDS, hash_password
 from poc_trust_tower.core.schemas import (
     BusinessUnitCreateSchema,
     CampaignCreateSchema,
@@ -42,18 +43,22 @@ repoCategories: list[Category] = [
 ]
 
 # Users ===============================================================
+def _demo_hash(password: str) -> str:
+    return hash_password(password, rounds=DEMO_ROUNDS)
+
+
 def _build_users() -> list[User]:
     users = [
-        User(id="1", email="admin@trust-tower.example", password="aaa", business_unit=repoBusinessUnits[0], role=ROLE.ADMIN),
-        User(id="2", email="cfo@trust-tower.example", password="aaa", business_unit=repoBusinessUnits[1], role=ROLE.CFO),
-        User(id="3", email="bu@trust-tower.example", password="aaa", business_unit=repoBusinessUnits[2], role=ROLE.BU),
-        User(id="4", email="buHead@trust-tower.example", password="aaa", business_unit=repoBusinessUnits[3], role=ROLE.BU_HEAD),
+        User(id="1", email="admin@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[0], role=ROLE.ADMIN),
+        User(id="2", email="cfo@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[1], role=ROLE.CFO),
+        User(id="3", email="bu@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[2], role=ROLE.BU),
+        User(id="4", email="buHead@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[3], role=ROLE.BU_HEAD),
     ]
     next_id = len(users) + 1
     for bu in repoBusinessUnits:
         slug = bu.id.lower()
-        users.append(User(id=str(next_id), email=f"bu.{slug}@trust-tower.example", password="bu", business_unit=bu, role=ROLE.BU))
-        users.append(User(id=str(next_id + 1), email=f"bu-head.{slug}@trust-tower.example", password="bu-head", business_unit=bu, role=ROLE.BU_HEAD))
+        users.append(User(id=str(next_id), email=f"bu.{slug}@trust-tower.example", password=_demo_hash("bu"), business_unit=bu, role=ROLE.BU))
+        users.append(User(id=str(next_id + 1), email=f"bu-head.{slug}@trust-tower.example", password=_demo_hash("bu-head"), business_unit=bu, role=ROLE.BU_HEAD))
         next_id += 2
     return users
 
@@ -266,7 +271,7 @@ def create_user(payload: UserCreateSchema) -> User:
     user = User(
         id=_next_id(repoUsers),
         email=payload.email,
-        password=payload.password,
+        password=hash_password(payload.password),
         business_unit=get_business_unit(payload.business_unit_id),
         role=payload.role,
     )
@@ -282,7 +287,7 @@ def update_user(user_id: str, payload: UserUpdateSchema) -> User:
     user.business_unit = get_business_unit(payload.business_unit_id)
     user.role = payload.role
     if payload.password:
-        user.password = payload.password
+        user.password = hash_password(payload.password)
     return user
 
 
