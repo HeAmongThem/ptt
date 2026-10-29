@@ -152,8 +152,8 @@
                     <td>
                         <form id="certify-{{ indicator.id }}" method="post"
                               action="/my-certifications/{{ indicator.id }}/certify?return_to={{ return_to|urlencode }}"></form>
-                        <select name="status" form="certify-{{ indicator.id }}" class="form-select form-select-sm js-status-select"
-                                style="min-width: 15rem" aria-label="Certification {{ level }}" title="Changing the value saves immediately">
+                        <select name="status" form="certify-{{ indicator.id }}" class="form-select form-select-sm js-status-select status-{{ current }}"
+                                style="min-width: 17rem" aria-label="Certification {{ level }}" title="Changing the value saves immediately">
                             {% for st in all_statuses %}
                             {% set sel = "selected" if st == current else "" %}
                             <option value="{{ st }}" {{ sel }}>{{ st|humanize }}</option>
@@ -161,7 +161,7 @@
                         </select>
                     </td>
                     {% else %}
-                    <td class="small text-nowrap">{{ current|humanize }}</td>
+                    <td class="small text-nowrap status-{{ current }}">{{ current|humanize }}</td>
                     {% endif %}
                     {% endfor %}
                     <td>{{ indicator.comment_emr_id }}</td>

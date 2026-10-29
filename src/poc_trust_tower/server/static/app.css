@@ -1,3 +1,12 @@
+:root {
+    --c-primary-subtle: #cfe2ff;
+    --c-success: #198754;
+    --c-success-subtle: #d1e7dd;
+    --c-danger: #dc3540;
+    --c-orange: #fd7e17;
+    --c-warning: #ffc107;
+}
+
 /* Enfants directs de <main> (flex) : doivent pouvoir rétrécir, sinon
    .table-responsive ne défile jamais horizontalement. */
 main > * {
@@ -76,4 +85,62 @@ main > * {
 /* Colonnes de texte long : largeur minimale pour un retour à la ligne lisible. */
 .table-modern .cell-text {
     min-width: 16rem;
+}
+
+/* Couleurs des statuts de certification ================================== */
+:root {
+    --c-warning: #ffc107;
+    --c-success: #198754;
+    --c-success-subtle: #d1e7dd;
+    --c-orange: #fd7e14;
+    --c-danger: #dc3545;
+}
+
+/* La classe status-<valeur> est posée sur la cellule, le badge ou le select. */
+.status-pending { background-color: var(--c-warning); color: #1f2937; }
+.status-certified_without_reserves { background-color: var(--c-success); color: #fff; }
+.status-acceptable { background-color: var(--c-success-subtle); color: #0f5132; }
+.status-certified_with_significant_reserves { background-color: var(--c-orange); color: #fff; }
+.status-not_certified { background-color: var(--c-danger); color: #fff; }
+
+/* Les cellules colorées doivent primer sur le fond blanc / survol de table-modern. */
+.table-modern > tbody > tr > td[class*="status-"],
+.table-modern > tbody > tr:hover > td[class*="status-"] {
+    background-color: inherit;
+}
+.table-modern > tbody > tr > td.status-pending,
+.table-modern > tbody > tr:hover > td.status-pending { background-color: var(--c-warning); }
+.table-modern > tbody > tr > td.status-certified_without_reserves,
+.table-modern > tbody > tr:hover > td.status-certified_without_reserves { background-color: var(--c-success); }
+.table-modern > tbody > tr > td.status-acceptable,
+.table-modern > tbody > tr:hover > td.status-acceptable { background-color: var(--c-success-subtle); }
+.table-modern > tbody > tr > td.status-certified_with_significant_reserves,
+.table-modern > tbody > tr:hover > td.status-certified_with_significant_reserves { background-color: var(--c-orange); }
+.table-modern > tbody > tr > td.status-not_certified,
+.table-modern > tbody > tr:hover > td.status-not_certified { background-color: var(--c-danger); }
+
+/* Select de statut éditable : même couleur que la valeur courante. */
+select.form-select[class*="status-"] {
+    border-color: transparent;
+    font-weight: 500;
+}
+select.form-select.status-certified_without_reserves,
+select.form-select.status-certified_with_significant_reserves,
+select.form-select.status-not_certified {
+    /* chevron Bootstrap en blanc pour les fonds foncés */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}
+select.form-select[class*="status-"] option {
+    background-color: #fff;
+    color: #1f2937;
+}
+
+/* Badge de statut (fiche, administration). */
+.status-badge {
+    display: inline-block;
+    padding: 0.2em 0.6em;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
 }

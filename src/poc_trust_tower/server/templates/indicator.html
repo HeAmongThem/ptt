@@ -46,11 +46,11 @@
                 <tr><th scope="row">Non certifié</th><td>{{ indicator.thresold_not_certified }}</td></tr>
 
                 <tr class="table-secondary"><th colspan="2">Certification</th></tr>
-                <tr><th scope="row">BU</th><td>{{ indicator.certification_bu|humanize }}</td></tr>
+                <tr><th scope="row">BU</th><td><span class="status-badge status-{{ indicator.certification_bu }}">{{ indicator.certification_bu|humanize }}</span></td></tr>
                 <tr><th scope="row">Commentaire BU</th><td>{{ indicator.comment_bu }}</td></tr>
-                <tr><th scope="row">Responsable BU</th><td>{{ indicator.certification_bu_head|humanize }}</td></tr>
+                <tr><th scope="row">Responsable BU</th><td><span class="status-badge status-{{ indicator.certification_bu_head }}">{{ indicator.certification_bu_head|humanize }}</span></td></tr>
                 <tr><th scope="row">Commentaire responsable BU</th><td>{{ indicator.comment_bu_head }}</td></tr>
-                <tr><th scope="row">CFO</th><td>{{ indicator.certification_cfo|humanize }}</td></tr>
+                <tr><th scope="row">CFO</th><td><span class="status-badge status-{{ indicator.certification_cfo }}">{{ indicator.certification_cfo|humanize }}</span></td></tr>
                 <tr><th scope="row">Commentaire CFO</th><td>{{ indicator.comment_cfo }}</td></tr>
 
                 <tr class="table-secondary"><th colspan="2">Historique</th></tr>
