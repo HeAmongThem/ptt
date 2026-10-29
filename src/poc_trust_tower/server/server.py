@@ -18,6 +18,7 @@ app = FastAPI()
 app.mount("/statics", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 app.include_router(admin_router)
 
+SALT = b'$2b$12$DlxERftUa4BJsKvUhmbtVO'
 
 #Errors==============================================================
 def error_response(request: Request, status_code: int, detail: str | None = None):
