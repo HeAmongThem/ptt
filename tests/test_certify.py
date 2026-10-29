@@ -3,9 +3,11 @@ from fastapi.testclient import TestClient
 
 from poc_trust_tower.core import repository as repo
 
-# Indicateur 7 -> BU Digital (id 3), indicateur 8 -> BU International (id 4)
+# Indicateur 7 -> BU Digital (id 3), indicateur 23 -> BU International (id 4) ; tous deux en campagne active (T4).
+# Indicateur 8 -> BU International, en campagne inactive (T1).
 DIG_INDICATOR = 7
-INT_INDICATOR = 8
+INT_INDICATOR = 23
+INACTIVE_INT_INDICATOR = 8
 
 
 def _snapshot(indicator_id: int) -> dict:
@@ -138,10 +140,18 @@ def _inline_controls(client: TestClient, **params) -> tuple[int, list[str]]:
     return triggers, you
 
 
+def _active_count(bu_id: int | None = None) -> int:
+    return len([
+        i for i in repo.repoIndicators
+        if repo.indicator_in_active_campaign(i.id) and (bu_id is None or i.business_unit.id == bu_id)
+    ])
+
+
 def test_inline_controls_match_role(bu_client: TestClient, bu_head_client: TestClient, user_client: TestClient) -> None:
-    assert _inline_controls(bu_client) == (10, ["Certification BU"])
-    assert _inline_controls(bu_head_client) == (10, ["Certification BU head"])
-    assert _inline_controls(user_client) == (len(repo.repoIndicators), ["Certification CFO"])
+    # Un select par ligne éditable ; l'en-tête "you" apparaît une fois par groupe actif.
+    assert _inline_controls(bu_client) == (_active_count(3), ["Certification BU"])
+    assert _inline_controls(bu_head_client) == (_active_count(4), ["Certification BU head"])
+    assert _inline_controls(user_client) == (_active_count(), ["Certification CFO"])
 
 
 def test_admin_has_no_inline_controls(admin_client: TestClient) -> None:
@@ -154,9 +164,9 @@ def test_admin_has_no_inline_controls(admin_client: TestClient) -> None:
 def test_edit_modals_present_for_certifiers(bu_client: TestClient) -> None:
     html = bu_client.get("/my-certifications").text
     assert html.count('id="comment-modal"') == 1
-    assert html.count('data-bs-target="#comment-modal"') == 10
-    assert html.count('<select name="status" form="certify-') == 10
-    assert html.count('<input type="hidden" name="comment"') == 10
+    assert html.count('data-bs-target="#comment-modal"') == _active_count(3)
+    assert html.count('<select name="status" form="certify-') == _active_count(3)
+    assert html.count('<input type="hidden" name="comment"') == _active_count(3)
 
 
 def test_statuses_are_displayed_as_model_values(bu_client: TestClient) -> None:
@@ -191,3 +201,55 @@ def test_inline_certify_rejects_external_return_to(bu_client: TestClient) -> Non
         data={"status": "pending", "comment": ""},
     )
     assert response.headers["location"] == f"/my-certifications/{DIG_INDICATOR}?saved=1"
+
+
+# Campagnes inactives : lecture seule ===================================
+def test_cannot_certify_indicator_of_inactive_campaign(bu_head_client: TestClient, user_client: TestClient) -> None:
+    before = _snapshot(INACTIVE_INT_INDICATOR)
+    response = _certify(bu_head_client, INACTIVE_INT_INDICATOR, "not_certified", "tentative")
+    assert response.status_code == 403
+    assert "not part of an active campaign" in response.text
+    assert _certify(user_client, INACTIVE_INT_INDICATOR, "not_certified", "").status_code == 403  # même le CFO
+    assert _snapshot(INACTIVE_INT_INDICATOR) == before
+
+    page = bu_head_client.get(f"/my-certifications/{INACTIVE_INT_INDICATOR}")
+    assert page.status_code == 200 and "/certify" not in page.text
+
+
+def test_list_is_grouped_by_campaign(user_client: TestClient) -> None:
+    import re
+    html = user_client.get("/my-certifications").text
+    sections = re.findall(r'<section class="campaign-group[^"]*" data-campaign-status="(\w+)" data-campaign="(\d*)">', html)
+    assert [s[0] for s in sections][:1] == ["active"]  # les campagnes actives d'abord
+    assert {int(s[1]) for s in sections if s[1]} == {c.id for c in repo.repoCampaigns}
+    assert html.count('<span class="badge bg-success">active</span>') == len([c for c in repo.repoCampaigns if c.actif])
+    assert "lecture seule" in html
+
+
+def test_inactive_group_rows_are_read_only(user_client: TestClient) -> None:
+    import re
+    html = user_client.get("/my-certifications").text
+    inactive = re.search(r'<section class="campaign-group[^"]*" data-campaign-status="inactive".*?</section>', html, re.S).group(0)
+    assert '<select name="status"' not in inactive
+    assert 'data-bs-target="#comment-modal"' not in inactive
+    active = re.search(r'<section class="campaign-group[^"]*" data-campaign-status="active".*?</section>', html, re.S).group(0)
+    assert '<select name="status"' in active
+
+
+def test_campaign_filters(user_client: TestClient) -> None:
+    import re
+    def visible_rows(**params):
+        html = user_client.get("/my-certifications", params=params).text
+        return re.findall(r'<tr\s+class=""\s+role="link".*?data-campaign-status="(\w+)"\s+data-campaign="(\d*)"', html, re.S)
+
+    active_rows = visible_rows(campaign_status="active")
+    assert active_rows and all(st == "active" for st, _ in active_rows)
+    inactive_rows = visible_rows(campaign_status="inactive")
+    assert inactive_rows and all(st == "inactive" for st, _ in inactive_rows)
+    assert len(visible_rows()) == len(active_rows) + len(inactive_rows)
+
+    one = visible_rows(campaign=1)
+    assert one and all(cid == "1" for _, cid in one)
+    assert len(one) == len(repo.campaign_indicator_ids(1))
+    assert user_client.get("/my-certifications", params={"campaign": "abc"}).status_code == 422
+    assert user_client.get("/my-certifications", params={"campaign": ""}).status_code == 200

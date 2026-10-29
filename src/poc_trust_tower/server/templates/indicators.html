@@ -57,6 +57,25 @@
                 {% endfor %}
             </select>
         </div>
+        <div class="col-md-2">
+            <label for="f-campaign-status" class="form-label small mb-1">Campagnes</label>
+            <select id="f-campaign-status" name="campaign_status" class="form-select form-select-sm">
+                {% for value, label in [("all", "Toutes"), ("active", "Actives"), ("inactive", "Inactives")] %}
+                {% set sel = "selected" if filters.campaign_status == value else "" %}
+                <option value="{{ value }}" {{ sel }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="f-campaign" class="form-label small mb-1">Campagne</label>
+            <select id="f-campaign" name="campaign" class="form-select form-select-sm">
+                <option value="">Toutes</option>
+                {% for c in campaign_options %}
+                {% set sel = "selected" if filters.campaign == c.id else "" %}
+                <option value="{{ c.id }}" {{ sel }}>{{ c.name }}{% if c.actif %} (active){% endif %}</option>
+                {% endfor %}
+            </select>
+        </div>
         <div class="col-md-2 d-flex gap-2">
             <button type="submit" class="btn btn-primary btn-sm">Filtrer</button>
             <a href="/my-certifications" class="btn btn-outline-secondary btn-sm">Réinitialiser</a>
@@ -70,131 +89,157 @@
     {% endif %}
 
     <p class="text-muted small">
-        <span id="count-visible">{{ visible_ids|length }}</span> / {{ total }}
-        indicateur(s)
+        <span id="count-visible">{{ visible_count }}</span> / {{ total }}
+        ligne(s)
         {% if my_status_field %}
-        &middot; vous pouvez modifier votre niveau de certification directement dans le tableau.
+        &middot; votre niveau de certification se modifie directement dans le tableau, uniquement pour les campagnes actives.
         {% endif %}
     </p>
+    <div id="empty-message" class="alert alert-secondary py-2 {{ '' if not visible_keys else 'd-none' }}">
+        Aucun indicateur ne correspond aux filtres.
+    </div>
 
-    <div class="table-responsive table-card">
-        <table
-            id="indicators-table"
-            class="table table-modern"
-        >
-            <thead class="table-light">
-                <tr>
-                    {% set level_headers = [("certification_bu", "comment_bu", "BU"), ("certification_bu_head", "comment_bu_head", "BU head"), ("certification_cfo", "comment_cfo", "CFO")] %}
-                    <th scope="col">Id</th>
-                    <th scope="col">Category</th>
-                    <th scope="col">Nature of information</th>
-                    <th scope="col">Description / expected action</th>
-                    <th scope="col">Availability date</th>
-                    <th scope="col">Validation committee</th>
-                    <th scope="col">Unit</th>
-                    <th scope="col">Value</th>
-                    <th scope="col">Previous value</th>
-                    <th scope="col">Variation</th>
-                    <th scope="col">Comment / analysis</th>
-                    <th scope="col">Threshold certified without reserves</th>
-                    <th scope="col">Threshold acceptable</th>
-                    <th scope="col">Threshold certified with significant reserves</th>
-                    <th scope="col">Threshold not certified</th>
-                    {% for status_field, comment_field, level in level_headers %}
-                    <th scope="col">Certification {{ level }}{% if status_field == my_status_field %} <span class="badge bg-primary">you</span>{% endif %}</th>
-                    {% endfor %}
-                    <th scope="col">EMR comment</th>
-                    {% for status_field, comment_field, level in level_headers %}
-                    <th scope="col">Comment {{ level }}{% if status_field == my_status_field %} <span class="badge bg-primary">you</span>{% endif %}</th>
-                    {% endfor %}
-                    <th scope="col">Business unit</th>
-                    <th scope="col">Created at</th>
-                    <th scope="col">Updated at</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for indicator in indicators %}
-                {% set editable = indicator.id in certifiable_ids %}
-                <tr
-                    class="{{ '' if indicator.id in visible_ids else 'd-none' }}"
-                    role="link"
-                    style="cursor: pointer"
-                    data-href="/my-certifications/{{ indicator.id }}"
-                    data-category="{{ indicator.category.id }}"
-                    data-variation="{{ variation_kind(indicator) }}"
-                    data-bu="{{ indicator.certification_bu }}"
-                    data-bu-head="{{ indicator.certification_bu_head }}"
-                    data-cfo="{{ indicator.certification_cfo }}"
-                >
-                    <td><a href="/my-certifications/{{ indicator.id }}">{{ indicator.id }}</a></td>
-                    <td>
-                        <a href="/my-certifications/category/{{ indicator.category.id }}"
-                           class="badge bg-primary text-decoration-none">{{ indicator.category.name }}</a>
-                    </td>
-                    <td>{{ indicator.nature_of_information }}</td>
-                    <td class="cell-text">{{ indicator.description_action_expected }}</td>
-                    <td class="text-nowrap">{{ indicator.availability_date.strftime("%d/%m/%Y") }}</td>
-                    <td>{{ indicator.validation_committee }}</td>
-                    <td>{{ indicator.unit }}</td>
-                    <td class="text-end">{{ indicator.value }}</td>
-                    <td class="text-end">{{ indicator.value_previous }}</td>
-                    <td class="text-end text-nowrap {{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}">
-                        {{ "%+.2f"|format(indicator.variation) }} %
-                    </td>
-                    <td class="cell-text">{{ indicator.comment_analysis }}</td>
-                    <td class="text-end">{{ indicator.thresold_certified_without_reserves }}</td>
-                    <td class="text-end">{{ indicator.thresold_acceptable }}</td>
-                    <td class="text-end">{{ indicator.thresold_certified_with_significant_reserves }}</td>
-                    <td class="text-end">{{ indicator.thresold_not_certified }}</td>
-                    {% for status_field, comment_field, level in level_headers %}
-                    {% set current = indicator[status_field] %}
-                    {% if editable and status_field == my_status_field %}
-                    <td>
-                        <form id="certify-{{ indicator.id }}" method="post"
-                              action="/my-certifications/{{ indicator.id }}/certify?return_to={{ return_to|urlencode }}"></form>
-                        <select name="status" form="certify-{{ indicator.id }}" class="form-select form-select-sm js-status-select status-{{ current }}"
-                                style="min-width: 17rem" aria-label="Certification {{ level }}" title="Changing the value saves immediately">
-                            {% for st in all_statuses %}
-                            {% set sel = "selected" if st == current else "" %}
-                            <option value="{{ st }}" {{ sel }}>{{ st|humanize }}</option>
-                            {% endfor %}
-                        </select>
-                    </td>
-                    {% else %}
-                    <td class="small text-nowrap status-{{ current }}">{{ current|humanize }}</td>
-                    {% endif %}
-                    {% endfor %}
-                    <td>{{ indicator.comment_emr }}</td>
-                    {% for status_field, comment_field, level in level_headers %}
-                    {% if editable and status_field == my_status_field %}
-                    <td class="cell-text">
-                        <input type="hidden" name="comment" form="certify-{{ indicator.id }}" value="{{ indicator[comment_field] }}">
-                        <button type="button" class="btn btn-link btn-sm p-0 text-start text-decoration-none js-edit-comment"
-                                data-bs-toggle="modal" data-bs-target="#comment-modal" data-indicator-id="{{ indicator.id }}"
-                                title="Edit comment {{ level }}">
-                            <span class="js-comment-text {{ 'text-muted fst-italic' if not indicator[comment_field] else '' }}">{{ indicator[comment_field] or "Add a comment…" }}</span>
-                            <span class="ms-1" aria-hidden="true">&#9998;</span>
-                        </button>
-                    </td>
-                    {% else %}
-                    <td class="cell-text">{{ indicator[comment_field] }}</td>
-                    {% endif %}
-                    {% endfor %}
-                    <td class="text-nowrap">{{ indicator.business_unit.name }}</td>
-                    <td class="text-nowrap">{{ indicator.created_at.strftime("%d/%m/%Y") }}</td>
-                    <td class="text-nowrap">{{ indicator.updated_at.strftime("%d/%m/%Y") }}</td>
-                </tr>
+    {% set level_headers = [("certification_bu", "comment_bu", "BU"), ("certification_bu_head", "comment_bu_head", "BU head"), ("certification_cfo", "comment_cfo", "CFO")] %}
+
+    {% macro indicator_row(indicator, campaign, actif) %}
+    {% set cid = campaign.id if campaign else "" %}
+    {% set key = (campaign.id if campaign else None, indicator.id) %}
+    {% set form_id = "certify-" ~ cid ~ "-" ~ indicator.id %}
+    {% set editable = actif and indicator.id in certifiable_ids %}
+    <tr
+        class="{{ '' if key in visible_keys else 'd-none' }}"
+        role="link"
+        style="cursor: pointer"
+        data-href="/my-certifications/{{ indicator.id }}"
+        data-category="{{ indicator.category.id }}"
+        data-variation="{{ variation_kind(indicator) }}"
+        data-bu="{{ indicator.certification_bu }}"
+        data-bu-head="{{ indicator.certification_bu_head }}"
+        data-cfo="{{ indicator.certification_cfo }}"
+        data-campaign-status="{{ 'active' if actif else 'inactive' }}"
+        data-campaign="{{ cid }}"
+    >
+        <td><a href="/my-certifications/{{ indicator.id }}">{{ indicator.id }}</a></td>
+        <td>
+            <a href="/my-certifications/category/{{ indicator.category.id }}"
+               class="badge bg-primary text-decoration-none">{{ indicator.category.name }}</a>
+        </td>
+        <td>{{ indicator.nature_of_information }}</td>
+        <td class="cell-text">{{ indicator.description_action_expected }}</td>
+        <td class="text-nowrap">{{ indicator.availability_date.strftime("%d/%m/%Y") }}</td>
+        <td>{{ indicator.validation_committee }}</td>
+        <td>{{ indicator.unit }}</td>
+        <td class="text-end">{{ indicator.value }}</td>
+        <td class="text-end">{{ indicator.value_previous }}</td>
+        <td class="text-end text-nowrap {{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}">
+            {{ "%+.2f"|format(indicator.variation) }} %
+        </td>
+        <td class="cell-text">{{ indicator.comment_analysis }}</td>
+        <td class="text-end">{{ indicator.thresold_certified_without_reserves }}</td>
+        <td class="text-end">{{ indicator.thresold_acceptable }}</td>
+        <td class="text-end">{{ indicator.thresold_certified_with_significant_reserves }}</td>
+        <td class="text-end">{{ indicator.thresold_not_certified }}</td>
+        {% for status_field, comment_field, level in level_headers %}
+        {% set current = indicator[status_field] %}
+        {% if editable and status_field == my_status_field %}
+        <td>
+            <form id="{{ form_id }}" method="post"
+                  action="/my-certifications/{{ indicator.id }}/certify?return_to={{ return_to|urlencode }}"></form>
+            <select name="status" form="{{ form_id }}" class="form-select form-select-sm js-status-select status-{{ current }}"
+                    style="min-width: 17rem" aria-label="Certification {{ level }}" title="Changing the value saves immediately">
+                {% for st in all_statuses %}
+                {% set sel = "selected" if st == current else "" %}
+                <option value="{{ st }}" {{ sel }}>{{ st|humanize }}</option>
                 {% endfor %}
-                <tr
-                    id="empty-row"
-                    class="{{ '' if not visible_ids else 'd-none' }}"
-                >
-                    <td colspan="25" class="text-center text-muted">
-                        Aucun indicateur ne correspond aux filtres.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+            </select>
+        </td>
+        {% else %}
+        <td class="small text-nowrap status-{{ current }}">{{ current|humanize }}</td>
+        {% endif %}
+        {% endfor %}
+        <td>{{ indicator.comment_emr }}</td>
+        {% for status_field, comment_field, level in level_headers %}
+        {% if editable and status_field == my_status_field %}
+        <td class="cell-text">
+            <input type="hidden" name="comment" form="{{ form_id }}" value="{{ indicator[comment_field] }}">
+            <button type="button" class="btn btn-link btn-sm p-0 text-start text-decoration-none js-edit-comment"
+                    data-bs-toggle="modal" data-bs-target="#comment-modal" data-indicator-id="{{ indicator.id }}" data-form-id="{{ form_id }}"
+                    title="Edit comment {{ level }}">
+                <span class="js-comment-text {{ 'text-muted fst-italic' if not indicator[comment_field] else '' }}">{{ indicator[comment_field] or "Add a comment…" }}</span>
+                <span class="ms-1" aria-hidden="true">&#9998;</span>
+            </button>
+        </td>
+        {% else %}
+        <td class="cell-text">{{ indicator[comment_field] }}</td>
+        {% endif %}
+        {% endfor %}
+        <td class="text-nowrap">{{ indicator.business_unit.name }}</td>
+        <td class="text-nowrap">{{ indicator.created_at.strftime("%d/%m/%Y") }}</td>
+        <td class="text-nowrap">{{ indicator.updated_at.strftime("%d/%m/%Y") }}</td>
+    </tr>
+    {% endmacro %}
+
+    <div id="groups">
+    {% for group in groups %}
+    {% set campaign = group.campaign %}
+    {% set group_key = (campaign.id if campaign else None) %}
+    <section class="campaign-group mb-4" data-campaign-status="{{ 'active' if group.actif else 'inactive' }}" data-campaign="{{ campaign.id if campaign else '' }}">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            {% if campaign %}
+            <h2 class="h5 mb-0">{{ campaign.name }}</h2>
+            <span class="text-muted small">{{ campaign.start_date.strftime("%d/%m/%Y") }} → {{ campaign.end_date.strftime("%d/%m/%Y") }}</span>
+            {% if group.actif %}
+            <span class="badge bg-success">active</span>
+            {% else %}
+            <span class="badge bg-secondary">inactive</span>
+            <span class="small text-muted">— lecture seule</span>
+            {% endif %}
+            {% else %}
+            <h2 class="h5 mb-0">Sans campagne</h2>
+            <span class="badge bg-secondary">lecture seule</span>
+            {% endif %}
+            <span class="small text-muted ms-auto"><span class="js-group-count"></span>{{ group.indicators|length }} indicateur(s)</span>
+        </div>
+        <div class="table-responsive table-card">
+            <table class="table table-modern indicators-table">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Id</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Nature of information</th>
+                        <th scope="col">Description / expected action</th>
+                        <th scope="col">Availability date</th>
+                        <th scope="col">Validation committee</th>
+                        <th scope="col">Unit</th>
+                        <th scope="col">Value</th>
+                        <th scope="col">Previous value</th>
+                        <th scope="col">Variation</th>
+                        <th scope="col">Comment / analysis</th>
+                        <th scope="col">Threshold certified without reserves</th>
+                        <th scope="col">Threshold acceptable</th>
+                        <th scope="col">Threshold certified with significant reserves</th>
+                        <th scope="col">Threshold not certified</th>
+                        {% for status_field, comment_field, level in level_headers %}
+                        <th scope="col">Certification {{ level }}{% if status_field == my_status_field and group.actif %} <span class="badge bg-primary">you</span>{% endif %}</th>
+                        {% endfor %}
+                        <th scope="col">EMR comment</th>
+                        {% for status_field, comment_field, level in level_headers %}
+                        <th scope="col">Comment {{ level }}{% if status_field == my_status_field and group.actif %} <span class="badge bg-primary">you</span>{% endif %}</th>
+                        {% endfor %}
+                        <th scope="col">Business unit</th>
+                        <th scope="col">Created at</th>
+                        <th scope="col">Updated at</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for indicator in group.indicators %}
+                    {{ indicator_row(indicator, campaign, group.actif) }}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endfor %}
     </div>
 </div>
 
@@ -224,12 +269,9 @@
 <script>
     (() => {
         const form = document.getElementById("filters");
-        const rows = Array.from(
-            document.querySelectorAll(
-                "#indicators-table tbody tr[data-category]",
-            ),
-        );
-        const emptyRow = document.getElementById("empty-row");
+        const groups = Array.from(document.querySelectorAll("#groups .campaign-group"));
+        const rows = Array.from(document.querySelectorAll("#groups tbody tr[data-category]"));
+        const emptyMessage = document.getElementById("empty-message");
         const countVisible = document.getElementById("count-visible");
         // Mapping nom de champ -> attribut data-* de la ligne.
         const fields = {
@@ -238,6 +280,18 @@
             bu: "bu",
             bu_head: "buHead",
             cfo: "cfo",
+            campaign_status: "campaignStatus",
+            campaign: "campaign",
+        };
+
+        const refreshGroups = () => {
+            for (const group of groups) {
+                const groupRows = Array.from(group.querySelectorAll("tbody tr[data-category]"));
+                const shown = groupRows.filter((r) => !r.classList.contains("d-none")).length;
+                group.classList.toggle("d-none", shown === 0);
+                const counter = group.querySelector(".js-group-count");
+                if (counter) counter.textContent = shown !== groupRows.length ? `${shown} / ` : "";
+            }
         };
 
         const applyFilters = () => {
@@ -252,8 +306,9 @@
                 row.classList.toggle("d-none", !match);
                 if (match) visible++;
             }
-            emptyRow.classList.toggle("d-none", visible > 0);
+            emptyMessage.classList.toggle("d-none", visible > 0);
             countVisible.textContent = visible;
+            refreshGroups();
 
             // Synchronise l'URL pour que le filtrage reste partageable / rechargeable.
             const params = new URLSearchParams();
@@ -269,32 +324,33 @@
         };
 
         form.addEventListener("change", applyFilters);
+        refreshGroups();
 
         // Modale d'édition du commentaire : pré-remplissage depuis le champ caché
         // de la ligne, puis report de la valeur et soumission du formulaire de la ligne.
-        const hiddenInput = (name, id) =>
-            document.querySelector(`input[name="${name}"][form="certify-${id}"]`);
+        const hiddenInput = (name, formId) =>
+            document.querySelector(`input[name="${name}"][form="${formId}"]`);
 
         const bindModal = ({ modalId, fieldName, inputId, labelId, textClass, onApply }) => {
             const modalEl = document.getElementById(modalId);
             if (!modalEl) return;
             const input = document.getElementById(inputId);
-            let currentId = null;
+            let currentFormId = null;
 
             modalEl.addEventListener("show.bs.modal", (event) => {
-                currentId = event.relatedTarget.dataset.indicatorId;
-                document.getElementById(labelId).textContent = currentId;
-                input.value = hiddenInput(fieldName, currentId).value;
+                currentFormId = event.relatedTarget.dataset.formId;
+                document.getElementById(labelId).textContent = event.relatedTarget.dataset.indicatorId;
+                input.value = hiddenInput(fieldName, currentFormId).value;
             });
             modalEl.addEventListener("shown.bs.modal", () => input.focus());
 
             modalEl.querySelector("form").addEventListener("submit", (event) => {
                 event.preventDefault();
-                const hidden = hiddenInput(fieldName, currentId);
+                const hidden = hiddenInput(fieldName, currentFormId);
                 hidden.value = input.value.trim();
                 const text = hidden.closest("td").querySelector(textClass);
                 if (onApply) onApply(text, hidden.value);
-                document.getElementById(`certify-${currentId}`).requestSubmit();
+                document.getElementById(currentFormId).requestSubmit();
             });
         };
 
@@ -322,7 +378,7 @@
 
         // Double-clic sur une ligne -> page de détail de l'indicateur.
         document
-            .querySelector("#indicators-table tbody")
+            .getElementById("groups")
             .addEventListener("dblclick", (event) => {
                 if (event.target.closest("select, input, textarea, button, a, form")) return;
                 const row = event.target.closest("tr[data-href]");

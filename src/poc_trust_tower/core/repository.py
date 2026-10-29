@@ -145,6 +145,15 @@ def campaign_indicators(campaign: Campaign | int) -> list[Indicator]:
     return [by_id[i] for i in campaign_indicator_ids(campaign_id) if i in by_id]
 
 
+def campaigns_of_indicator(indicator_id: int) -> list[Campaign]:
+    ids = {l.campain_id for l in repoCampaignIndicators if l.indicateur_id == indicator_id}
+    return [c for c in repoCampaigns if c.id in ids]
+
+
+def indicator_in_active_campaign(indicator_id: int) -> bool:
+    return any(c.actif for c in campaigns_of_indicator(indicator_id))
+
+
 def campaign_indicator_counts() -> dict[int, int]:
     counts: dict[int, int] = {c.id: 0 for c in repoCampaigns}
     for link in repoCampaignIndicators:
@@ -464,6 +473,8 @@ def certification_denial(user: User, indicator: Indicator) -> str | None:
         return f"role {user.role.value} cannot certify indicators"
     if user.role in (ROLE.BU, ROLE.BU_HEAD) and indicator.business_unit is not user.business_unit:
         return f"indicator {indicator.id} belongs to {indicator.business_unit.name}, not {user.business_unit.name}"
+    if not indicator_in_active_campaign(indicator.id):
+        return f"indicator {indicator.id} is not part of an active campaign"
     return None
 
 
