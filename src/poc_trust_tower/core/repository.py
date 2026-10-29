@@ -15,6 +15,7 @@ from poc_trust_tower.core.schemas import (
     BusinessUnitCreateSchema,
     CampaignCreateSchema,
     CategoryCreateSchema,
+    CertificationSchema,
     IndicatorCreateSchema,
     UserCreateSchema,
     UserUpdateSchema,
@@ -177,6 +178,10 @@ class NotFoundError(LookupError):
 
 
 class ConflictError(ValueError):
+    pass
+
+
+class ForbiddenError(PermissionError):
     pass
 
 
@@ -369,3 +374,37 @@ def update_campaign(campaign_id: str, payload: CampaignCreateSchema) -> Campaign
 
 def delete_campaign(campaign_id: str) -> None:
     repoCampaigns.remove(get_campaign(campaign_id))
+
+
+# Certification ========================================================
+# Rôle -> (champ statut, champ commentaire) que ce rôle est autorisé à modifier.
+CERTIFICATION_FIELDS: dict[ROLE, tuple[str, str]] = {
+    ROLE.BU: ("certification_bu", "comment_bu"),
+    ROLE.BU_HEAD: ("certification_bu_head", "comment_bu_head"),
+    ROLE.CFO: ("certification_cfo", "comment_cfo"),
+}
+
+
+def certification_denial(user: User, indicator: Indicator) -> str | None:
+    """Raison pour laquelle l'utilisateur ne peut pas certifier cet indicateur, ou None s'il le peut."""
+    if user.role not in CERTIFICATION_FIELDS:
+        return f"role {user.role.value} cannot certify indicators"
+    if user.role in (ROLE.BU, ROLE.BU_HEAD) and indicator.business_unit is not user.business_unit:
+        return f"indicator {indicator.id} belongs to {indicator.business_unit.name}, not {user.business_unit.name}"
+    return None
+
+
+def can_certify(user: User, indicator: Indicator) -> bool:
+    return certification_denial(user, indicator) is None
+
+
+def certify_indicator(indicator_id: str, user: User, payload: CertificationSchema) -> Indicator:
+    indicator = get_indicator(indicator_id)
+    denial = certification_denial(user, indicator)
+    if denial:
+        raise ForbiddenError(denial)
+    status_field, comment_field = CERTIFICATION_FIELDS[user.role]
+    setattr(indicator, status_field, payload.status)
+    setattr(indicator, comment_field, payload.comment)
+    indicator.updated_at = datetime.now()
+    return indicator

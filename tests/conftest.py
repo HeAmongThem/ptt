@@ -5,6 +5,8 @@ from poc_trust_tower.server.server import app
 
 ADMIN_CREDENTIALS = {"email": "admin@trust-tower.example", "password": "aaa"}
 USER_CREDENTIALS = {"email": "cfo@trust-tower.example", "password": "aaa"}
+BU_CREDENTIALS = {"email": "bu@trust-tower.example", "password": "aaa"}  # BU Digital (DIG)
+BU_HEAD_CREDENTIALS = {"email": "buHead@trust-tower.example", "password": "aaa"}  # BU International (INT)
 
 
 def _login(client: TestClient, credentials: dict) -> TestClient:
@@ -27,3 +29,13 @@ def user_client() -> TestClient:
 @pytest.fixture
 def admin_client() -> TestClient:
     return _login(TestClient(app, follow_redirects=False), ADMIN_CREDENTIALS)
+
+
+@pytest.fixture
+def bu_client() -> TestClient:
+    return _login(TestClient(app, follow_redirects=False), BU_CREDENTIALS)
+
+
+@pytest.fixture
+def bu_head_client() -> TestClient:
+    return _login(TestClient(app, follow_redirects=False), BU_HEAD_CREDENTIALS)

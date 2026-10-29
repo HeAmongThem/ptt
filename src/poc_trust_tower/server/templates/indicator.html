@@ -46,11 +46,11 @@
                 <tr><th scope="row">Non certifié</th><td>{{ indicator.thresold_not_certified }}</td></tr>
 
                 <tr class="table-secondary"><th colspan="2">Certification</th></tr>
-                <tr><th scope="row">BU</th><td>{{ indicator.certification_bu }}</td></tr>
+                <tr><th scope="row">BU</th><td>{{ indicator.certification_bu|status_label }}</td></tr>
                 <tr><th scope="row">Commentaire BU</th><td>{{ indicator.comment_bu }}</td></tr>
-                <tr><th scope="row">Responsable BU</th><td>{{ indicator.certification_bu_head }}</td></tr>
+                <tr><th scope="row">Responsable BU</th><td>{{ indicator.certification_bu_head|status_label }}</td></tr>
                 <tr><th scope="row">Commentaire responsable BU</th><td>{{ indicator.comment_bu_head }}</td></tr>
-                <tr><th scope="row">CFO</th><td>{{ indicator.certification_cfo }}</td></tr>
+                <tr><th scope="row">CFO</th><td>{{ indicator.certification_cfo|status_label }}</td></tr>
                 <tr><th scope="row">Commentaire CFO</th><td>{{ indicator.comment_cfo }}</td></tr>
 
                 <tr class="table-secondary"><th colspan="2">Historique</th></tr>
@@ -59,5 +59,40 @@
             </tbody>
         </table>
     </div>
+
+    {% if saved %}
+    <div class="alert alert-success mt-3 py-2">Votre certification a été enregistrée.</div>
+    {% endif %}
+
+    {% if can_certify %}
+    {% set level = {"BU": "BU", "BU_HEAD": "Responsable BU", "CFO": "CFO"}[current_user.role.value] %}
+    <div class="card mt-3">
+        <div class="card-header fw-bold">Votre certification — niveau {{ level }}</div>
+        <div class="card-body">
+            <form method="post" action="/my-certifications/{{ indicator.id }}/certify" class="row g-3">
+                <div class="col-md-4">
+                    <label for="f-status" class="form-label small mb-1">Statut</label>
+                    <select id="f-status" name="status" class="form-select form-select-sm">
+                        {% for s in statuses %}
+                        {% set sel = "selected" if s == my_status else "" %}
+                        <option value="{{ s }}" {{ sel }}>{{ s|status_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label for="f-comment" class="form-label small mb-1">Commentaire</label>
+                    <textarea id="f-comment" name="comment" rows="2" class="form-control form-control-sm">{{ my_comment }}</textarea>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary btn-sm">Enregistrer ma certification</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% elif current_user.role.value in ("BU", "BU_HEAD") %}
+    <div class="alert alert-secondary mt-3 py-2 small">
+        Lecture seule : cet indicateur appartient à {{ indicator.business_unit.name }}, vous êtes rattaché à {{ current_user.business_unit.name }}.
+    </div>
+    {% endif %}
 </div>
 {% endblock content %}

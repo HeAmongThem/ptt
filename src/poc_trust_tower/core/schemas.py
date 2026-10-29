@@ -7,7 +7,7 @@ de schémas de réponse / de requête pour FastAPI.
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from poc_trust_tower.core.model import ROLE, CertificationStatus
 
@@ -144,6 +144,21 @@ class IndicatorCreateSchema(BaseModel):
                 "certified_without_reserves, acceptable, certified_with_significant_reserves, not_certified"
             )
         return self
+
+
+# Certification ========================================================
+class CertificationSchema(BaseModel):
+    """Payload de certification d'un indicateur par un utilisateur BU / BU_HEAD / CFO."""
+
+    status: str
+    comment: str = ""
+
+    @field_validator("status")
+    @classmethod
+    def _check_status(cls, value: str) -> str:
+        if value not in CertificationStatus.__members__:
+            raise ValueError(f"status must be one of: {', '.join(CertificationStatus.__members__)}")
+        return value
 
 
 # Campaigns ===========================================================
