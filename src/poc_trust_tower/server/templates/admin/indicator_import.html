@@ -6,6 +6,9 @@
 
 {% block content %}
 <div class="container py-3">
+    <div class="mb-3">
+        <a href="/admin" class="btn btn-outline-secondary btn-sm">&larr; Retour à l'administration</a>
+    </div>
 
     {% if created %}
     <div class="alert alert-success">
@@ -52,7 +55,7 @@
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary btn-sm">Importer</button>
-                            <a href="/admin?tab=indicators" class="btn btn-outline-secondary btn-sm">Retour</a>
+                            <a href="/admin?tab=indicators" class="btn btn-outline-secondary btn-sm">Annuler</a>
                         </div>
                     </form>
                 </div>
