@@ -14,7 +14,7 @@
 {% block content %}
 <div class="container-fluid py-3">
     <ul class="nav nav-tabs mb-3" role="tablist">
-        {% for key, label in [("business-units", "Business units"), ("categories", "Catégories"), ("campaigns", "Campagnes"), ("users", "Utilisateurs"), ("indicators", "Indicateurs"), ("campaign-indicators", "Campagnes ↔ Indicateurs"), ("settings", "Paramètres")] %}
+        {% for key, label in [("business-units", "Business units"), ("categories", "Catégories"), ("campaigns", "Campagnes"), ("users", "Utilisateurs"), ("indicators", "Indicateurs"), ("campaign-indicators", "Campagnes ↔ Indicateurs"), ("audit", "Audit"), ("settings", "Paramètres")] %}
         {% set active = "active" if tab == key else "" %}
         <li class="nav-item" role="presentation">
             <a class="nav-link {{ active }}" href="/admin?tab={{ key }}">{{ label }}</a>
@@ -194,6 +194,71 @@
         </div>
     </form>
     {% endif %}
+
+    {% elif tab == "audit" %}
+    <form method="get" action="/admin" class="row g-2 align-items-end mb-3">
+        <input type="hidden" name="tab" value="audit">
+        <div class="col-md-2">
+            <label for="f-audit-indicator" class="form-label small mb-1">Indicateur (id)</label>
+            <input type="number" min="1" id="f-audit-indicator" name="audit_indicator" class="form-control form-control-sm"
+                   value="{{ audit_filters.indicator if audit_filters.indicator is not none else '' }}">
+        </div>
+        <div class="col-md-3">
+            <label for="f-audit-user" class="form-label small mb-1">Utilisateur</label>
+            <select id="f-audit-user" name="audit_user" class="form-select form-select-sm">
+                <option value="">Tous</option>
+                {% for u in users %}
+                {% set sel = "selected" if audit_filters.user == u.id else "" %}
+                <option value="{{ u.id }}" {{ sel }}>{{ u.email }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="f-audit-action" class="form-label small mb-1">Action</label>
+            <select id="f-audit-action" name="audit_action" class="form-select form-select-sm">
+                <option value="">Toutes</option>
+                {% for act in audit_actions %}
+                {% set sel = "selected" if audit_filters.action == act else "" %}
+                <option value="{{ act }}" {{ sel }}>{{ act }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-sm">Filtrer</button>
+            <a href="/admin?tab=audit" class="btn btn-outline-secondary btn-sm">Réinitialiser</a>
+        </div>
+        <div class="col-md-2 text-end text-muted small">{{ audit_entries|length }} / {{ audit_total }} entrée(s)</div>
+    </form>
+    <div class="table-card">
+        <table class="table table-modern mb-0">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Indicateur</th>
+                    <th scope="col">Utilisateur</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Champ</th>
+                    <th scope="col">Ancienne valeur</th>
+                    <th scope="col">Nouvelle valeur</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in audit_entries %}
+                <tr>
+                    <td class="text-nowrap">{{ a.timestamp.strftime("%d/%m/%Y %H:%M:%S") }}</td>
+                    <td><a href="/my-certifications/{{ a.indicator_id }}">{{ a.indicator_id }}</a></td>
+                    <td class="text-nowrap">{{ a.user_email }}</td>
+                    <td><span class="badge bg-{{ {'created': 'success', 'imported': 'success', 'updated': 'primary', 'certified': 'info', 'deleted': 'danger'}.get(a.action, 'secondary') }}">{{ a.action }}</span></td>
+                    <td class="text-nowrap"><code>{{ a.field }}</code></td>
+                    <td class="cell-text">{{ a.old_value }}</td>
+                    <td class="cell-text">{{ a.new_value }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted">Aucune entrée d'audit.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
     {% elif tab == "settings" %}
     <div class="row g-4">

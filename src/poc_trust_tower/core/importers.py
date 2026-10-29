@@ -154,12 +154,12 @@ def parse_indicators(rows: list[dict[str, Any]]) -> list[IndicatorCreateSchema]:
     return payloads
 
 
-def import_indicators(filename: str, content: bytes) -> list[Indicator]:
+def import_indicators(filename: str, content: bytes, actor=None) -> list[Indicator]:
     rows = read_rows(filename, content)
     if not rows:
         raise UnsupportedFormatError("Le fichier ne contient aucune ligne de données.")
     payloads = parse_indicators(rows)
-    return [repo.create_indicator(p) for p in payloads]
+    return [repo.create_indicator(p, actor=actor, action="imported") for p in payloads]
 
 
 # Modèles téléchargeables ==============================================

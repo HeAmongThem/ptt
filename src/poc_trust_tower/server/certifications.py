@@ -149,6 +149,7 @@ def my_certifications_by_id(request: Request, indicator_id: int, user: CurrentUs
             "my_comment": getattr(indicator, fields[1]) if fields else None,
             "statuses": [s.name for s in CertificationStatus],
             "indicator_campaigns": repo.campaigns_of_indicator(indicator.id),
+            "audit_trail": repo.indicator_audit_trail(indicator.id),
         },
     )
 

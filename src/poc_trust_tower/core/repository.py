@@ -9,6 +9,7 @@ from poc_trust_tower.core.model import (
     Category,
     CertificationStatus,
     Indicator,
+    IndicatorAudit,
     User,
 )
 from poc_trust_tower.core.security import DEMO_ROUNDS, hash_password
@@ -217,8 +218,16 @@ class ForbiddenError(PermissionError):
     pass
 
 
+# Marque haute par collection : un id supprimé n'est jamais réattribué
+# (indispensable pour que l'audit trail reste rattaché au bon objet).
+_HIGH_WATER_IDS: dict[int, int] = {}
+
+
 def _next_id(items: list) -> int:
-    return max((i.id for i in items), default=0) + 1
+    key = id(items)
+    current = max(max((i.id for i in items), default=0), _HIGH_WATER_IDS.get(key, 0))
+    _HIGH_WATER_IDS[key] = current + 1
+    return current + 1
 
 
 def _find(items: list, item_id: int, label: str):
@@ -329,6 +338,75 @@ def delete_user(user_id: int) -> None:
     repoUsers.remove(get_user(user_id))
 
 
+# --- Audit trail des indicateurs ---------------------------------------
+repoIndicatorAudits: list[IndicatorAudit] = []
+
+# Champs suivis lors d'une mise à jour (ordre d'affichage).
+AUDITED_FIELDS: tuple[str, ...] = (
+    "category", "business_unit", "nature_of_information", "description_action_expected",
+    "availability_date", "validation_committee", "unit", "value", "value_previous",
+    "comment_analysis", "thresold_certified_without_reserves", "thresold_acceptable",
+    "thresold_certified_with_significant_reserves", "thresold_not_certified",
+    "certification_bu", "certification_bu_head", "certification_cfo",
+    "comment_emr", "comment_bu", "comment_bu_head", "comment_cfo",
+)
+
+
+def _audit_repr(value) -> str:
+    """Représentation textuelle stable d'une valeur pour l'audit."""
+    if value is None:
+        return ""
+    if isinstance(value, (Category, BusinessUnit)):
+        return value.name
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M")
+    return str(value)
+
+
+def _snapshot(indicator: Indicator) -> dict[str, str]:
+    return {f: _audit_repr(getattr(indicator, f)) for f in AUDITED_FIELDS}
+
+
+def _record_audit(indicator_id: int, actor: User | None, action: str, changes: list[tuple[str, str, str]]) -> None:
+    now = datetime.now()
+    for field, old, new in changes:
+        repoIndicatorAudits.append(
+            IndicatorAudit(
+                id=_next_id(repoIndicatorAudits),
+                indicator_id=indicator_id,
+                user_id=actor.id if actor else None,
+                user_email=actor.email if actor else "system",
+                action=action,
+                field=field,
+                old_value=old,
+                new_value=new,
+                timestamp=now,
+            )
+        )
+
+
+def _record_diff(indicator: Indicator, before: dict[str, str], actor: User | None, action: str) -> list[str]:
+    after = _snapshot(indicator)
+    changes = [(f, before[f], after[f]) for f in AUDITED_FIELDS if before[f] != after[f]]
+    _record_audit(indicator.id, actor, action, changes)
+    return [c[0] for c in changes]
+
+
+def indicator_audit_trail(indicator_id: int) -> list[IndicatorAudit]:
+    return sorted((a for a in repoIndicatorAudits if a.indicator_id == indicator_id), key=lambda a: (a.timestamp, a.id), reverse=True)
+
+
+def audit_trail(indicator_id: int | None = None, user_id: int | None = None, action: str | None = None, limit: int | None = None) -> list[IndicatorAudit]:
+    entries = [
+        a for a in repoIndicatorAudits
+        if (indicator_id is None or a.indicator_id == indicator_id)
+        and (user_id is None or a.user_id == user_id)
+        and (not action or a.action == action)
+    ]
+    entries.sort(key=lambda a: (a.timestamp, a.id), reverse=True)
+    return entries[:limit] if limit else entries
+
+
 # --- Indicators -------------------------------------------------------
 def _compute_variation(value: float, value_previous: float) -> float:
     return round((value - value_previous) / value_previous * 100, 2) if value_previous else 0.0
@@ -350,7 +428,7 @@ def _apply_indicator_payload(indicator: Indicator, payload: IndicatorCreateSchem
     indicator.updated_at = datetime.now()
 
 
-def create_indicator(payload: IndicatorCreateSchema) -> Indicator:
+def create_indicator(payload: IndicatorCreateSchema, actor: User | None = None, action: str = "created") -> Indicator:
     now = datetime.now()
     indicator = Indicator(
         id=_next_id(repoIndicators),
@@ -363,19 +441,23 @@ def create_indicator(payload: IndicatorCreateSchema) -> Indicator:
     )
     indicator.variation = _compute_variation(indicator.value, indicator.value_previous)
     repoIndicators.append(indicator)
+    _record_audit(indicator.id, actor, action, [("", "", indicator.description_action_expected)])
     return indicator
 
 
-def update_indicator(indicator_id: int, payload: IndicatorCreateSchema) -> Indicator:
+def update_indicator(indicator_id: int, payload: IndicatorCreateSchema, actor: User | None = None) -> Indicator:
     indicator = get_indicator(indicator_id)
+    before = _snapshot(indicator)
     _apply_indicator_payload(indicator, payload)
+    _record_diff(indicator, before, actor, "updated")
     return indicator
 
 
-def delete_indicator(indicator_id: int) -> None:
+def delete_indicator(indicator_id: int, actor: User | None = None) -> None:
     indicator = get_indicator(indicator_id)
     repoCampaignIndicators[:] = [l for l in repoCampaignIndicators if l.indicateur_id != indicator.id]
     repoIndicators.remove(indicator)
+    _record_audit(indicator.id, actor, "deleted", [("", indicator.description_action_expected, "")])
 
 
 # --- Campaigns --------------------------------------------------------
@@ -488,9 +570,11 @@ def certify_indicator(indicator_id: int, user: User, payload: CertificationSchem
     if denial:
         raise ForbiddenError(denial)
     status_field, comment_field = CERTIFICATION_FIELDS[user.role]
+    before = _snapshot(indicator)
     setattr(indicator, status_field, payload.status)
     setattr(indicator, comment_field, payload.comment)
-    indicator.updated_at = datetime.now()
+    if _record_diff(indicator, before, user, "certified"):
+        indicator.updated_at = datetime.now()
     return indicator
 
 

@@ -63,6 +63,43 @@
         </table>
     </div>
 
+    <div class="card card-modern mt-3" id="audit-trail">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Audit trail</span>
+            <span class="badge bg-secondary">{{ audit_trail|length }}</span>
+        </div>
+        {% if audit_trail %}
+        <div class="table-responsive">
+            <table class="table table-modern mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">User</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">Field</th>
+                        <th scope="col">Old value</th>
+                        <th scope="col">New value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in audit_trail %}
+                    <tr>
+                        <td class="text-nowrap">{{ a.timestamp.strftime("%d/%m/%Y %H:%M:%S") }}</td>
+                        <td class="text-nowrap">{{ a.user_email }}</td>
+                        <td><span class="badge bg-{{ {'created': 'success', 'imported': 'success', 'updated': 'primary', 'certified': 'info', 'deleted': 'danger'}.get(a.action, 'secondary') }}">{{ a.action }}</span></td>
+                        <td class="text-nowrap"><code>{{ a.field }}</code></td>
+                        <td class="cell-text">{{ a.old_value|humanize if a.field.startswith("certification_") else a.old_value }}</td>
+                        <td class="cell-text">{{ a.new_value|humanize if a.field.startswith("certification_") else a.new_value }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="card-body text-muted small">No change recorded yet.</div>
+        {% endif %}
+    </div>
+
     {% if can_certify %}
     {% set level = {"BU": "BU", "BU_HEAD": "BU head", "CFO": "CFO"}[current_user.role.value] %}
     <div class="card card-modern mt-3">

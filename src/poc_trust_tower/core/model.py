@@ -78,3 +78,16 @@ class Indicator:
 class CampaignIndicator:
    campain_id: int
    indicateur_id: int
+
+
+@dataclass
+class IndicatorAudit:
+   id: int
+   indicator_id: int
+   user_id: int | None
+   user_email: str
+   action: str          # created | updated | certified | deleted | imported
+   field: str           # champ modifié ("" pour created / deleted)
+   old_value: str
+   new_value: str
+   timestamp: datetime

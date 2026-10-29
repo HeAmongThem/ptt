@@ -16,7 +16,7 @@ from poc_trust_tower.core.schemas import (
     UserCreateSchema,
     UserUpdateSchema,
 )
-from poc_trust_tower.server.auth import require_role
+from poc_trust_tower.server.auth import CurrentUserDep, require_role
 from poc_trust_tower.server.templating import templates
 
 router = APIRouter(
@@ -25,7 +25,7 @@ router = APIRouter(
     dependencies=[require_role(ROLE.ADMIN)],
 )
 
-Tab = Literal["business-units", "categories", "campaigns", "users", "indicators", "campaign-indicators", "settings"]
+Tab = Literal["business-units", "categories", "campaigns", "users", "indicators", "campaign-indicators", "audit", "settings"]
 
 
 def _redirect(tab: Tab) -> RedirectResponse:
@@ -55,7 +55,14 @@ def _form_context(**extra) -> dict:
 
 
 @router.get("")
-def admin_index(request: Request, tab: Tab = "categories", campaign: int | None = None):
+def admin_index(
+    request: Request,
+    tab: Tab = "categories",
+    campaign: int | None = None,
+    audit_indicator: int | None = None,
+    audit_user: int | None = None,
+    audit_action: str = "",
+):
     # Onglet Campagnes <-> Indicateurs : campagne sélectionnée (la première par défaut).
     selected_campaign = None
     if tab == "campaign-indicators" and repo.repoCampaigns:
@@ -86,6 +93,11 @@ def admin_index(request: Request, tab: Tab = "categories", campaign: int | None 
                 for i in repo.repoIndicators
             },
             "link_count": len(repo.repoCampaignIndicators),
+            # Onglet Audit
+            "audit_entries": repo.audit_trail(audit_indicator, audit_user, audit_action, limit=500) if tab == "audit" else [],
+            "audit_total": len(repo.repoIndicatorAudits),
+            "audit_filters": {"indicator": audit_indicator, "user": audit_user, "action": audit_action},
+            "audit_actions": ["created", "imported", "updated", "certified", "deleted"],
         },
     )
 
@@ -256,8 +268,8 @@ def indicator_new(request: Request):
 
 
 @router.post("/indicators/new")
-def indicator_create(payload: Annotated[IndicatorCreateSchema, Form()]):
-    _run(repo.create_indicator, payload)
+def indicator_create(payload: Annotated[IndicatorCreateSchema, Form()], user: CurrentUserDep):
+    _run(repo.create_indicator, payload, user)
     return _redirect("indicators")
 
 
@@ -283,11 +295,11 @@ def indicator_import_form(request: Request):
 
 
 @router.post("/indicators/import")
-async def indicator_import(request: Request, file: Annotated[UploadFile, File()]):
+async def indicator_import(request: Request, file: Annotated[UploadFile, File()], user: CurrentUserDep):
     content = await file.read()
     filename = file.filename or ""
     try:
-        created = importers.import_indicators(filename, content)
+        created = importers.import_indicators(filename, content, actor=user)
     except importers.ImportValidationError as exc:
         return templates.TemplateResponse(
             request,
@@ -326,12 +338,12 @@ def indicator_edit(request: Request, indicator_id: int):
 
 
 @router.post("/indicators/{indicator_id}")
-def indicator_update(indicator_id: int, payload: Annotated[IndicatorCreateSchema, Form()]):
-    _run(repo.update_indicator, indicator_id, payload)
+def indicator_update(indicator_id: int, payload: Annotated[IndicatorCreateSchema, Form()], user: CurrentUserDep):
+    _run(repo.update_indicator, indicator_id, payload, user)
     return _redirect("indicators")
 
 
 @router.post("/indicators/{indicator_id}/delete")
-def indicator_delete(indicator_id: int):
-    _run(repo.delete_indicator, indicator_id)
+def indicator_delete(indicator_id: int, user: CurrentUserDep):
+    _run(repo.delete_indicator, indicator_id, user)
     return _redirect("indicators")
