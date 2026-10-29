@@ -11,6 +11,7 @@ from poc_trust_tower.core.model import (
     User,
 )
 from poc_trust_tower.core.schemas import (
+    BusinessUnitCreateSchema,
     CampaignCreateSchema,
     CategoryCreateSchema,
     IndicatorCreateSchema,
@@ -200,9 +201,38 @@ def get_campaign(campaign_id: str) -> Campaign:
     return _find(repoCampaigns, campaign_id, "campaign")
 
 
+# --- Business units ---------------------------------------------------
+def _id_from_name(name: str, fallback: list) -> str:
+    return "".join(ch for ch in name.upper() if ch.isalnum())[:10] or _next_id(fallback)
+
+
+def create_business_unit(payload: BusinessUnitCreateSchema) -> BusinessUnit:
+    bu_id = _id_from_name(payload.name, repoBusinessUnits)
+    if any(bu.id == bu_id for bu in repoBusinessUnits):
+        raise ConflictError(f"business unit {bu_id} already exists")
+    bu = BusinessUnit(id=bu_id, name=payload.name)
+    repoBusinessUnits.append(bu)
+    return bu
+
+
+def update_business_unit(bu_id: str, payload: BusinessUnitCreateSchema) -> BusinessUnit:
+    bu = get_business_unit(bu_id)
+    bu.name = payload.name
+    return bu
+
+
+def delete_business_unit(bu_id: str) -> None:
+    bu = get_business_unit(bu_id)
+    if any(u.business_unit is bu for u in repoUsers):
+        raise ConflictError(f"business unit {bu_id} is used by users")
+    if any(i.business_unit is bu for i in repoIndicators):
+        raise ConflictError(f"business unit {bu_id} is used by indicators")
+    repoBusinessUnits.remove(bu)
+
+
 # --- Categories -------------------------------------------------------
 def _category_id_from_name(name: str) -> str:
-    return "".join(ch for ch in name.upper() if ch.isalnum())[:10] or _next_id(repoCategories)
+    return _id_from_name(name, repoCategories)
 
 
 def create_category(payload: CategoryCreateSchema) -> Category:

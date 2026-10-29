@@ -14,7 +14,7 @@
 {% block content %}
 <div class="container-fluid py-3">
     <ul class="nav nav-tabs mb-3" role="tablist">
-        {% for key, label in [("categories", "Catégories"), ("campaigns", "Campagnes"), ("users", "Utilisateurs"), ("indicators", "Indicateurs")] %}
+        {% for key, label in [("business-units", "Business units"), ("categories", "Catégories"), ("campaigns", "Campagnes"), ("users", "Utilisateurs"), ("indicators", "Indicateurs")] %}
         {% set active = "active" if tab == key else "" %}
         <li class="nav-item" role="presentation">
             <a class="nav-link {{ active }}" href="/admin?tab={{ key }}">{{ label }}</a>
@@ -22,7 +22,32 @@
         {% endfor %}
     </ul>
 
-    {% if tab == "categories" %}
+    {% if tab == "business-units" %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted small">{{ business_units|length }} business unit(s)</span>
+        <a href="/admin/business-units/new" class="btn btn-primary btn-sm">+ Ajouter</a>
+    </div>
+    <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-light">
+            <tr><th>Id</th><th>Nom</th><th class="text-end">Utilisateurs</th><th class="text-end">Indicateurs</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for bu in business_units %}
+            <tr>
+                <td>{{ bu.id }}</td>
+                <td>{{ bu.name }}</td>
+                <td class="text-end">{{ users|selectattr("business_unit", "sameas", bu)|list|length }}</td>
+                <td class="text-end">{{ indicators|selectattr("business_unit", "sameas", bu)|list|length }}</td>
+                <td class="text-end">
+                    <a href="/admin/business-units/{{ bu.id }}" class="btn btn-outline-secondary btn-sm">Modifier</a>
+                    {{ delete_form("/admin/business-units/" ~ bu.id ~ "/delete", "la business unit " ~ bu.name) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% elif tab == "categories" %}
     <div class="d-flex justify-content-between align-items-center mb-2">
         <span class="text-muted small">{{ categories|length }} catégorie(s)</span>
         <a href="/admin/categories/new" class="btn btn-primary btn-sm">+ Ajouter</a>

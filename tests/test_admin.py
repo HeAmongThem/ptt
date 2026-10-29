@@ -27,7 +27,7 @@ INDICATOR_FORM = {
 }
 
 
-@pytest.mark.parametrize("tab", ["categories", "campaigns", "users", "indicators"])
+@pytest.mark.parametrize("tab", ["business-units", "categories", "campaigns", "users", "indicators"])
 def test_admin_tabs(client: TestClient, tab: str) -> None:
     response = client.get("/admin", params={"tab": tab})
     assert response.status_code == 200
@@ -37,6 +37,8 @@ def test_admin_tabs(client: TestClient, tab: str) -> None:
 @pytest.mark.parametrize(
     "path",
     [
+        "/admin/business-units/new",
+        "/admin/business-units/RET",
         "/admin/categories/new",
         "/admin/categories/FIN",
         "/admin/campaigns/new",
@@ -55,6 +57,25 @@ def test_admin_edit_form_prefilled(client: TestClient) -> None:
     html = client.get("/admin/indicators/7").text
     assert '<option value="OPS" selected>' in html
     assert 'name="value"' in html
+
+
+def test_business_unit_crud(client: TestClient) -> None:
+    created = client.post("/admin/business-units/new", data={"name": "BU Nord"})
+    assert created.status_code == 303
+    assert created.headers["location"] == "/admin?tab=business-units"
+    assert repo.get_business_unit("BUNORD").name == "BU Nord"
+
+    assert client.post("/admin/business-units/new", data={"name": "BU Nord"}).status_code == 409
+    assert client.post("/admin/business-units/new", data={"name": ""}).status_code == 422
+
+    assert client.post("/admin/business-units/BUNORD", data={"name": "BU Grand Nord"}).status_code == 303
+    assert repo.get_business_unit("BUNORD").name == "BU Grand Nord"
+
+    assert client.post("/admin/business-units/RET/delete").status_code == 409  # utilisée
+    assert client.post("/admin/business-units/BUNORD/delete").status_code == 303
+    with pytest.raises(repo.NotFoundError):
+        repo.get_business_unit("BUNORD")
+    assert client.get("/admin/business-units/BUNORD").status_code == 404
 
 
 def test_category_crud(client: TestClient) -> None:

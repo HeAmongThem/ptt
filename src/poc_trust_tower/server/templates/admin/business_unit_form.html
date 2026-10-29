@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% import "admin/_macros.html" as f %}
+
+{% block header %}
+<h1 class="h3 my-3">{{ title }}</h1>
+{% endblock header %}
+
+{% block content %}
+<div class="container py-3">
+    <form method="post" class="row g-3">
+        {{ f.input("name", "Nom", item.name if item else "") }}
+        {% if item %}
+        <div class="col-md-6">
+            <label class="form-label small mb-1">Id</label>
+            <input type="text" class="form-control form-control-sm" value="{{ item.id }}" disabled>
+            <div class="form-text">L'identifiant n'est pas modifiable.</div>
+        </div>
+        {% else %}
+        <div class="col-md-6 form-text align-self-end">L'identifiant sera généré à partir du nom.</div>
+        {% endif %}
+        {{ f.actions("business-units", item) }}
+    </form>
+</div>
+{% endblock content %}

@@ -7,6 +7,7 @@ from poc_trust_tower.core import importers
 from poc_trust_tower.core import repository as repo
 from poc_trust_tower.core.model import ROLE, CertificationStatus
 from poc_trust_tower.core.schemas import (
+    BusinessUnitCreateSchema,
     CampaignCreateSchema,
     CategoryCreateSchema,
     IndicatorCreateSchema,
@@ -17,7 +18,7 @@ from poc_trust_tower.server.templating import templates
 
 router = APIRouter(prefix="/admin", include_in_schema=False)
 
-Tab = Literal["categories", "campaigns", "users", "indicators"]
+Tab = Literal["business-units", "categories", "campaigns", "users", "indicators"]
 
 
 def _redirect(tab: Tab) -> RedirectResponse:
@@ -54,12 +55,47 @@ def admin_index(request: Request, tab: Tab = "categories"):
         {
             "title": "Administration",
             "tab": tab,
+            "business_units": repo.repoBusinessUnits,
             "categories": repo.repoCategories,
             "campaigns": repo.repoCampaigns,
             "users": repo.repoUsers,
             "indicators": repo.repoIndicators,
         },
     )
+
+
+# Business units ======================================================
+@router.get("/business-units/new")
+def business_unit_new(request: Request):
+    return templates.TemplateResponse(
+        request, "admin/business_unit_form.html", _form_context(title="Nouvelle business unit", item=None)
+    )
+
+
+@router.post("/business-units/new")
+def business_unit_create(payload: Annotated[BusinessUnitCreateSchema, Form()]):
+    _run(repo.create_business_unit, payload)
+    return _redirect("business-units")
+
+
+@router.get("/business-units/{bu_id}")
+def business_unit_edit(request: Request, bu_id: str):
+    item = _run(repo.get_business_unit, bu_id)
+    return templates.TemplateResponse(
+        request, "admin/business_unit_form.html", _form_context(title=f"Business unit {item.name}", item=item)
+    )
+
+
+@router.post("/business-units/{bu_id}")
+def business_unit_update(bu_id: str, payload: Annotated[BusinessUnitCreateSchema, Form()]):
+    _run(repo.update_business_unit, bu_id, payload)
+    return _redirect("business-units")
+
+
+@router.post("/business-units/{bu_id}/delete")
+def business_unit_delete(bu_id: str):
+    _run(repo.delete_business_unit, bu_id)
+    return _redirect("business-units")
 
 
 # Categories ==========================================================
