@@ -133,7 +133,7 @@ def test_scope_applies_to_detail_page(bu_client: TestClient, bu_head_client: Tes
 def _inline_controls(client: TestClient, **params) -> tuple[int, list[str]]:
     import re
     html = client.get("/my-certifications", params=params).text
-    triggers = len(re.findall(r'<input type="hidden" name="status" form="certify-', html))
+    triggers = len(re.findall(r'<select name="status" form="certify-', html))
     you = re.findall(r'<th scope="col">(Certification [^<]+?) ?<span class="badge bg-primary">you', html)
     return triggers, you
 
@@ -148,21 +148,21 @@ def test_admin_has_no_inline_controls(admin_client: TestClient) -> None:
     assert _inline_controls(admin_client) == (0, [])
     html = admin_client.get("/my-certifications").text
     assert '<input type="hidden" name="comment"' not in html
-    assert 'id="comment-modal"' not in html and 'id="status-modal"' not in html
+    assert 'id="comment-modal"' not in html
 
 
 def test_edit_modals_present_for_certifiers(bu_client: TestClient) -> None:
     html = bu_client.get("/my-certifications").text
-    assert html.count('id="status-modal"') == 1 and html.count('id="comment-modal"') == 1
-    assert html.count('data-bs-target="#status-modal"') == 10
+    assert html.count('id="comment-modal"') == 1
     assert html.count('data-bs-target="#comment-modal"') == 10
+    assert html.count('<select name="status" form="certify-') == 10
     assert html.count('<input type="hidden" name="comment"') == 10
 
 
 def test_statuses_are_displayed_as_model_values(bu_client: TestClient) -> None:
     html = bu_client.get(f"/my-certifications/{DIG_INDICATOR}").text
     current = repo.get_indicator(DIG_INDICATOR).certification_bu
-    assert f'<input type="hidden" name="status" form="certify-{DIG_INDICATOR}" value="{current}">' in bu_client.get("/my-certifications").text
+    assert f'<option value="{current}" selected>{current.replace("_", " ")}</option>' in bu_client.get("/my-certifications").text
     assert "En attente" not in html and "Réserves signif." not in html
 
 
@@ -177,7 +177,7 @@ def test_inline_certify_returns_to_filtered_list(bu_client: TestClient) -> None:
 
     html = bu_client.get(response.headers["location"]).text
     assert "Certification de l'indicateur" in html
-    assert f'<input type="hidden" name="status" form="certify-{DIG_INDICATOR}" value="acceptable">' in html
+    assert '<option value="acceptable" selected>acceptable</option>' in html
     assert 'value="depuis la liste"' in html
     assert repo.get_indicator(DIG_INDICATOR).comment_bu == "depuis la liste"
     # Le return_to régénéré ne doit pas propager le marqueur saved.
