@@ -26,11 +26,11 @@ def test_unknown_route_returns_404(client: TestClient) -> None:
 
 
 def test_filter_indicators_by_category(client: TestClient) -> None:
-    response = client.get("/my-certifications", params={"category": "FIN"})
+    response = client.get("/my-certifications", params={"category": 1})
     assert response.status_code == 200
     html = response.text
-    assert 'data-category="FIN"' in html
-    assert '<option value="FIN" selected>Finance</option>' in html
+    assert 'data-category="1"' in html
+    assert '<option value="1" selected>Finance</option>' in html
     assert '<span id="count-visible">10</span>' in html
 
 
@@ -58,19 +58,26 @@ def test_indicator_badge_links_to_category(client: TestClient) -> None:
 
 
 def test_indicators_by_category(client: TestClient) -> None:
-    response = client.get("/my-certifications/category/FIN")
+    response = client.get("/my-certifications/category/1")
     assert response.status_code == 200
-    assert '<option value="FIN" selected>Finance</option>' in response.text
+    assert '<option value="1" selected>Finance</option>' in response.text
     assert '<span id="count-visible">10</span>' in response.text
 
 
 def test_indicators_by_unknown_category(client: TestClient) -> None:
-    assert client.get("/my-certifications/category/XXX").status_code == 404
+    assert client.get("/my-certifications/category/999").status_code == 404
 
 
 def test_error_page_on_404(client: TestClient) -> None:
-    response = client.get("/my-certifications/does-not-exist")
+    response = client.get("/my-certifications/999999")
     assert response.status_code == 404
     assert "text/html" in response.headers["content-type"]
     assert "Something went wrong" in response.text
     assert ">404<" in response.text
+
+
+def test_filter_form_accepts_empty_category(client: TestClient) -> None:
+    # Le bouton "Filtrer" envoie category= (vide) pour "Toutes".
+    response = client.get("/my-certifications", params={"category": "", "variation": "all", "bu": "", "bu_head": "", "cfo": ""})
+    assert response.status_code == 200
+    assert client.get("/my-certifications", params={"category": "abc"}).status_code == 422

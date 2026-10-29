@@ -14,7 +14,7 @@
 {% block content %}
 <div class="container-fluid py-3">
     <ul class="nav nav-tabs mb-3" role="tablist">
-        {% for key, label in [("business-units", "Business units"), ("categories", "Catégories"), ("campaigns", "Campagnes"), ("users", "Utilisateurs"), ("indicators", "Indicateurs")] %}
+        {% for key, label in [("business-units", "Business units"), ("categories", "Catégories"), ("campaigns", "Campagnes"), ("users", "Utilisateurs"), ("indicators", "Indicateurs"), ("campaign-indicators", "Campagnes ↔ Indicateurs"), ("settings", "Paramètres")] %}
         {% set active = "active" if tab == key else "" %}
         <li class="nav-item" role="presentation">
             <a class="nav-link {{ active }}" href="/admin?tab={{ key }}">{{ label }}</a>
@@ -158,6 +158,96 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
+    {% elif tab == "campaign-indicators" %}
+    <div class="card card-modern mb-3">
+        <div class="card-header">Associer un indicateur à une campagne</div>
+        <div class="card-body">
+            <form method="post" action="/admin/campaign-indicators/new" class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label for="f-campain-id" class="form-label small mb-1">Campagne</label>
+                    <select id="f-campain-id" name="campain_id" class="form-select form-select-sm" required>
+                        {% for c in campaigns %}
+                        <option value="{{ c.id }}">{{ c.id }} — {{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="f-indicateur-id" class="form-label small mb-1">Indicateur</label>
+                    <select id="f-indicateur-id" name="indicateur_id" class="form-select form-select-sm" required>
+                        {% for i in indicators %}
+                        <option value="{{ i.id }}">{{ i.id }} — {{ i.category.name }} — {{ i.description_action_expected }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Associer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted small">{{ campaign_indicators|length }} association(s)</span>
+    </div>
+    <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-light">
+            <tr><th>Campagne</th><th>Indicateur</th><th>Catégorie</th><th>Business unit</th><th>Description</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for link, campaign, indicator in campaign_indicators %}
+            <tr>
+                <td class="text-nowrap">{{ campaign.id }} — {{ campaign.name }}</td>
+                <td><a href="/my-certifications/{{ indicator.id }}">{{ indicator.id }}</a></td>
+                <td><span class="badge bg-primary">{{ indicator.category.name }}</span></td>
+                <td class="text-nowrap">{{ indicator.business_unit.name }}</td>
+                <td class="text-truncate" style="max-width: 24rem" title="{{ indicator.description_action_expected }}">{{ indicator.description_action_expected }}</td>
+                <td class="text-end">
+                    {{ delete_form("/admin/campaign-indicators/" ~ campaign.id ~ "/" ~ indicator.id ~ "/delete", "l'association de l'indicateur " ~ indicator.id ~ " à " ~ campaign.name) }}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted">Aucune association.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% elif tab == "settings" %}
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card card-modern">
+                <div class="card-header">Message d'information de la page d'accueil</div>
+                <div class="card-body">
+                    <form method="post" action="/admin/settings" class="d-flex flex-column gap-3">
+                        <div>
+                            <label for="f-home-message" class="form-label small mb-1">Message affiché sur la page /</label>
+                            <textarea id="f-home-message" name="home_message" rows="4" class="form-control" maxlength="1000" required>{{ home_message }}</textarea>
+                            <div class="form-text">1 000 caractères maximum.</div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm">Enregistrer</button>
+                            <a href="/" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">Voir la page d'accueil</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card card-modern">
+                <div class="card-header">Campagnes actives (affichées sur l'accueil)</div>
+                <div class="card-body">
+                    {% if active_campaigns %}
+                    <ul class="mb-0 small">
+                        {% for c in active_campaigns %}
+                        <li>{{ c.name }} — du {{ c.start_date.strftime("%d/%m/%Y") }} au {{ c.end_date.strftime("%d/%m/%Y") }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <span class="text-muted small">Aucune campagne active. Les campagnes se gèrent dans l'onglet Campagnes.</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
     {% endif %}
 </div>

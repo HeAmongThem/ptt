@@ -11,8 +11,8 @@ def client(admin_client: TestClient) -> TestClient:
 
 
 INDICATOR_FORM = {
-    "category_id": "FIN",
-    "business_unit_id": "RET",
+    "category_id": "1",
+    "business_unit_id": "1",
     "nature_of_information": "Quantitatif",
     "description_action_expected": "Suivi",
     "availability_date": "2026-11-01T09:00",
@@ -27,7 +27,7 @@ INDICATOR_FORM = {
 }
 
 
-@pytest.mark.parametrize("tab", ["business-units", "categories", "campaigns", "users", "indicators"])
+@pytest.mark.parametrize("tab", ["business-units", "categories", "campaigns", "users", "indicators", "campaign-indicators", "settings"])
 def test_admin_tabs(client: TestClient, tab: str) -> None:
     response = client.get("/admin", params={"tab": tab})
     assert response.status_code == 200
@@ -38,9 +38,9 @@ def test_admin_tabs(client: TestClient, tab: str) -> None:
     "path",
     [
         "/admin/business-units/new",
-        "/admin/business-units/RET",
+        "/admin/business-units/1",
         "/admin/categories/new",
-        "/admin/categories/FIN",
+        "/admin/categories/1",
         "/admin/campaigns/new",
         "/admin/campaigns/1",
         "/admin/users/new",
@@ -55,7 +55,7 @@ def test_admin_forms_render(client: TestClient, path: str) -> None:
 
 def test_admin_edit_form_prefilled(client: TestClient) -> None:
     html = client.get("/admin/indicators/7").text
-    assert '<option value="OPS" selected>' in html
+    assert '<option value="3" selected>' in html
     assert 'name="value"' in html
 
 
@@ -63,47 +63,49 @@ def test_business_unit_crud(client: TestClient) -> None:
     created = client.post("/admin/business-units/new", data={"name": "BU Nord"})
     assert created.status_code == 303
     assert created.headers["location"] == "/admin?tab=business-units"
-    assert repo.get_business_unit("BUNORD").name == "BU Nord"
+    bu_id = repo.repoBusinessUnits[-1].id
+    assert repo.get_business_unit(bu_id).name == "BU Nord"
 
     assert client.post("/admin/business-units/new", data={"name": "BU Nord"}).status_code == 409
     assert client.post("/admin/business-units/new", data={"name": ""}).status_code == 422
 
-    assert client.post("/admin/business-units/BUNORD", data={"name": "BU Grand Nord"}).status_code == 303
-    assert repo.get_business_unit("BUNORD").name == "BU Grand Nord"
+    assert client.post(f"/admin/business-units/{bu_id}", data={"name": "BU Grand Nord"}).status_code == 303
+    assert repo.get_business_unit(bu_id).name == "BU Grand Nord"
 
-    assert client.post("/admin/business-units/RET/delete").status_code == 409  # utilisée
-    assert client.post("/admin/business-units/BUNORD/delete").status_code == 303
+    assert client.post("/admin/business-units/1/delete").status_code == 409  # utilisée
+    assert client.post(f"/admin/business-units/{bu_id}/delete").status_code == 303
     with pytest.raises(repo.NotFoundError):
-        repo.get_business_unit("BUNORD")
-    assert client.get("/admin/business-units/BUNORD").status_code == 404
+        repo.get_business_unit(bu_id)
+    assert client.get(f"/admin/business-units/{bu_id}").status_code == 404
 
 
 def test_category_crud(client: TestClient) -> None:
     created = client.post("/admin/categories/new", data={"name": "Juridique"})
     assert created.status_code == 303
     assert created.headers["location"] == "/admin?tab=categories"
-    assert repo.get_category("JURIDIQUE") is not None
+    category_id = repo.repoCategories[-1].id
+    assert repo.get_category(category_id).name == "Juridique"
 
     assert client.post("/admin/categories/new", data={"name": "Juridique"}).status_code == 409
     assert client.post("/admin/categories/new", data={"name": ""}).status_code == 422
 
-    assert client.post("/admin/categories/JURIDIQUE", data={"name": "Legal"}).status_code == 303
-    assert repo.get_category("JURIDIQUE").name == "Legal"
+    assert client.post(f"/admin/categories/{category_id}", data={"name": "Legal"}).status_code == 303
+    assert repo.get_category(category_id).name == "Legal"
 
-    assert client.post("/admin/categories/FIN/delete").status_code == 409  # utilisée
-    assert client.post("/admin/categories/JURIDIQUE/delete").status_code == 303
-    assert repo.get_category("JURIDIQUE") is None
+    assert client.post("/admin/categories/1/delete").status_code == 409  # utilisée
+    assert client.post(f"/admin/categories/{category_id}/delete").status_code == 303
+    assert repo.get_category(category_id) is None
 
 
 def test_user_crud(client: TestClient) -> None:
-    data = {"email": "x@trust-tower.example", "password": "abcd", "business_unit_id": "DIG", "role": "BU"}
+    data = {"email": "x@trust-tower.example", "password": "abcd", "business_unit_id": "3", "role": "BU"}
     assert client.post("/admin/users/new", data=data).status_code == 303
     user_id = repo.repoUsers[-1].id
 
-    update = {"email": "y@trust-tower.example", "password": "", "business_unit_id": "RET", "role": "CFO"}
+    update = {"email": "y@trust-tower.example", "password": "", "business_unit_id": "1", "role": "CFO"}
     assert client.post(f"/admin/users/{user_id}", data=update).status_code == 303
     user = repo.get_user(user_id)
-    assert (user.email, user.role.value, user.business_unit.id) == ("y@trust-tower.example", "CFO", "RET")
+    assert (user.email, user.role.value, user.business_unit.id) == ("y@trust-tower.example", "CFO", 1)
     assert verify_password("abcd", user.password)  # mot de passe vide = inchangé, et stocké haché
     assert client.post(f"/admin/users/{user_id}", data={**update, "password": "ab"}).status_code == 422
 
@@ -121,15 +123,15 @@ def test_indicator_and_campaign_crud(client: TestClient) -> None:
     assert repo.get_indicator(indicator_id).variation == -50.0
     assert client.post(f"/admin/indicators/{indicator_id}", data={**INDICATOR_FORM, "thresold_acceptable": "95"}).status_code == 422
 
-    campaign = {"name": "T1 2027", "start_date": "2027-01-01", "end_date": "2027-03-31", "indicator_ids": [indicator_id, "1"]}
+    campaign = {"name": "T1 2027", "start_date": "2027-01-01", "end_date": "2027-03-31", "indicator_ids": [indicator_id, 1]}
     assert client.post("/admin/campaigns/new", data=campaign).status_code == 303
     campaign_id = repo.repoCampaigns[-1].id
-    assert [i.id for i in repo.get_campaign(campaign_id).indicators] == [indicator_id, "1"]
+    assert [i.id for i in repo.get_campaign(campaign_id).indicators] == [indicator_id, 1]
     assert client.post("/admin/campaigns/new", data={**campaign, "start_date": "2027-12-31"}).status_code == 422
 
     # Supprimer un indicateur le retire des campagnes qui le référencent.
     assert client.post(f"/admin/indicators/{indicator_id}/delete").status_code == 303
-    assert [i.id for i in repo.get_campaign(campaign_id).indicators] == ["1"]
+    assert [i.id for i in repo.get_campaign(campaign_id).indicators] == [1]
 
     assert client.post(f"/admin/campaigns/{campaign_id}/delete").status_code == 303
     assert client.get(f"/admin/campaigns/{campaign_id}").status_code == 404
@@ -154,21 +156,21 @@ def test_import_template_roundtrip(client: TestClient, ext: str) -> None:
     assert "1 indicateur(s) importé(s)" in response.text
     assert len(repo.repoIndicators) == before + 1
     created = repo.repoIndicators[-1]
-    assert created.category.id == "FIN" and created.variation == 9.55
+    assert created.category.id == 1 and created.variation == 9.55
     repo.delete_indicator(created.id)
 
 
 def test_import_invalid_rows_is_all_or_nothing(client: TestClient) -> None:
     header = "category_id;business_unit_id;nature_of_information;description_action_expected;availability_date;validation_committee;unit;value;value_previous;thresold_certified_without_reserves;thresold_acceptable;thresold_certified_with_significant_reserves;thresold_not_certified"
     rows = [
-        "FIN;RET;Q;Ligne valide;2026-12-01;COMEX;%;50;40;90;75;60;40",
-        "XXX;RET;Q;Catégorie inconnue;2026-12-01;COMEX;%;50;40;90;75;60;40",
+        "1;1;Q;Ligne valide;2026-12-01;COMEX;%;50;40;90;75;60;40",
+        "999;1;Q;Catégorie inconnue;2026-12-01;COMEX;%;50;40;90;75;60;40",
     ]
     content = ("\n".join([header, *rows]) + "\n").encode()
     before = len(repo.repoIndicators)
     response = client.post("/admin/indicators/import", files={"file": ("bad.csv", content)})
     assert response.status_code == 422
-    assert "catégorie inconnue : XXX" in response.text
+    assert "catégorie inconnue : 999" in response.text
     assert "<td>3</td>" in response.text  # numéro de ligne
     assert len(repo.repoIndicators) == before
 
@@ -177,3 +179,46 @@ def test_import_unsupported_format(client: TestClient) -> None:
     response = client.post("/admin/indicators/import", files={"file": ("notes.txt", b"hello")})
     assert response.status_code == 422
     assert "non supporté" in response.text
+
+
+# Campaign indicators ===================================================
+def test_campaign_indicators_tab_lists_links(client: TestClient) -> None:
+    html = client.get("/admin", params={"tab": "campaign-indicators"}).text
+    assert f"{len(repo.repoCampaignIndicators)} association(s)" in html
+    assert 'name="campain_id"' in html and 'name="indicateur_id"' in html
+
+
+def test_campaign_indicator_add_and_remove(client: TestClient) -> None:
+    campaign = repo.get_campaign(1)
+    indicator = next(i for i in repo.repoIndicators if i not in campaign.indicators)
+    before = len(repo.repoCampaignIndicators)
+
+    response = client.post("/admin/campaign-indicators/new", data={"campain_id": campaign.id, "indicateur_id": indicator.id})
+    assert response.status_code == 303 and response.headers["location"] == "/admin?tab=campaign-indicators"
+    assert len(repo.repoCampaignIndicators) == before + 1
+    assert indicator in campaign.indicators  # Campaign.indicators reste synchronisé
+
+    assert client.post("/admin/campaign-indicators/new", data={"campain_id": campaign.id, "indicateur_id": indicator.id}).status_code == 409
+    assert client.post("/admin/campaign-indicators/new", data={"campain_id": 999, "indicateur_id": indicator.id}).status_code == 404
+    assert client.post("/admin/campaign-indicators/new", data={"campain_id": "abc", "indicateur_id": indicator.id}).status_code == 422
+
+    assert client.post(f"/admin/campaign-indicators/{campaign.id}/{indicator.id}/delete").status_code == 303
+    assert len(repo.repoCampaignIndicators) == before
+    assert indicator not in campaign.indicators
+    assert client.post(f"/admin/campaign-indicators/{campaign.id}/{indicator.id}/delete").status_code == 404
+
+
+def test_campaign_links_follow_campaign_and_indicator_lifecycle(client: TestClient) -> None:
+    assert client.post("/admin/indicators/new", data=INDICATOR_FORM).status_code == 303
+    indicator_id = repo.repoIndicators[-1].id
+    campaign = {"name": "Liens", "start_date": "2027-01-01", "end_date": "2027-03-31", "indicator_ids": [indicator_id, 1]}
+    assert client.post("/admin/campaigns/new", data=campaign).status_code == 303
+    campaign_id = repo.repoCampaigns[-1].id
+    links = lambda: {(l.campain_id, l.indicateur_id) for l in repo.repoCampaignIndicators if l.campain_id == campaign_id}
+    assert links() == {(campaign_id, indicator_id), (campaign_id, 1)}
+
+    # Supprimer l'indicateur retire son lien ; supprimer la campagne retire les siens.
+    assert client.post(f"/admin/indicators/{indicator_id}/delete").status_code == 303
+    assert links() == {(campaign_id, 1)}
+    assert client.post(f"/admin/campaigns/{campaign_id}/delete").status_code == 303
+    assert links() == set()

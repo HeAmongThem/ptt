@@ -1,8 +1,8 @@
 {
   "indicators": [
     {
-      "category_id": "FIN",
-      "business_unit_id": "RET",
+      "category_id": 1,
+      "business_unit_id": 1,
       "nature_of_information": "Quantitatif",
       "description_action_expected": "Chiffre d'affaires mensuel du réseau retail",
       "availability_date": "2026-11-05T09:00",
@@ -18,14 +18,14 @@
       "certification_bu": "certified_without_reserves",
       "certification_bu_head": "pending",
       "certification_cfo": "pending",
-      "comment_emr_id": "EMR-2001",
+      "comment_emr": "EMR-2001",
       "comment_bu": "Données rapprochées avec la comptabilité",
       "comment_bu_head": "",
       "comment_cfo": ""
     },
     {
-      "category_id": "RH",
-      "business_unit_id": "CORP",
+      "category_id": 2,
+      "business_unit_id": 2,
       "nature_of_information": "Quantitatif",
       "description_action_expected": "Taux d'absentéisme du siège",
       "availability_date": "2026-11-10T09:00",
@@ -41,14 +41,14 @@
       "certification_bu": "acceptable",
       "certification_bu_head": "acceptable",
       "certification_cfo": "pending",
-      "comment_emr_id": "EMR-2002",
+      "comment_emr": "EMR-2002",
       "comment_bu": "",
       "comment_bu_head": "Suivi mensuel renforcé",
       "comment_cfo": ""
     },
     {
-      "category_id": "OPS",
-      "business_unit_id": "DIG",
+      "category_id": 3,
+      "business_unit_id": 3,
       "nature_of_information": "Pilotage",
       "description_action_expected": "Disponibilité de la plateforme e-commerce",
       "availability_date": "2026-11-03T09:00",
@@ -64,14 +64,14 @@
       "certification_bu": "certified_without_reserves",
       "certification_bu_head": "certified_without_reserves",
       "certification_cfo": "certified_without_reserves",
-      "comment_emr_id": "EMR-2003",
+      "comment_emr": "EMR-2003",
       "comment_bu": "",
       "comment_bu_head": "",
       "comment_cfo": "RAS"
     },
     {
-      "category_id": "RSK",
-      "business_unit_id": "INT",
+      "category_id": 4,
+      "business_unit_id": 4,
       "nature_of_information": "Reglementaire",
       "description_action_expected": "Nombre d'incidents de conformité ouverts",
       "availability_date": "2026-11-15T09:00",
@@ -87,14 +87,14 @@
       "certification_bu": "certified_with_significant_reserves",
       "certification_bu_head": "pending",
       "certification_cfo": "pending",
-      "comment_emr_id": "EMR-2004",
+      "comment_emr": "EMR-2004",
       "comment_bu": "Plan de remédiation présenté au comité",
       "comment_bu_head": "",
       "comment_cfo": ""
     },
     {
-      "category_id": "CONF",
-      "business_unit_id": "SERV",
+      "category_id": 5,
+      "business_unit_id": 5,
       "nature_of_information": "Qualitatif",
       "description_action_expected": "Taux de complétion des formations obligatoires",
       "availability_date": "2026-11-20T09:00",
@@ -110,7 +110,7 @@
       "certification_bu": "pending",
       "certification_bu_head": "pending",
       "certification_cfo": "pending",
-      "comment_emr_id": "EMR-2005",
+      "comment_emr": "EMR-2005",
       "comment_bu": "",
       "comment_bu_head": "",
       "comment_cfo": ""

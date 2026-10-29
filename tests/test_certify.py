@@ -3,17 +3,17 @@ from fastapi.testclient import TestClient
 
 from poc_trust_tower.core import repository as repo
 
-# Indicateur 7 -> BU Digital (DIG), indicateur 8 -> BU International (INT)
-DIG_INDICATOR = "7"
-INT_INDICATOR = "8"
+# Indicateur 7 -> BU Digital (id 3), indicateur 8 -> BU International (id 4)
+DIG_INDICATOR = 7
+INT_INDICATOR = 8
 
 
-def _snapshot(indicator_id: str) -> dict:
+def _snapshot(indicator_id: int) -> dict:
     i = repo.get_indicator(indicator_id)
     return {f: getattr(i, f) for pair in repo.CERTIFICATION_FIELDS.values() for f in pair}
 
 
-def _certify(client: TestClient, indicator_id: str, status: str, comment: str):
+def _certify(client: TestClient, indicator_id: int, status: str, comment: str):
     return client.post(f"/my-certifications/{indicator_id}/certify", data={"status": status, "comment": comment})
 
 
@@ -82,7 +82,7 @@ def test_invalid_status_is_rejected(bu_client: TestClient) -> None:
 
 
 def test_unknown_indicator(bu_client: TestClient) -> None:
-    assert _certify(bu_client, "999", "pending", "").status_code == 404
+    assert _certify(bu_client, 999, "pending", "").status_code == 404
 
 
 def test_anonymous_cannot_certify(anonymous_client: TestClient) -> None:
@@ -94,19 +94,19 @@ def test_anonymous_cannot_certify(anonymous_client: TestClient) -> None:
 def _visible_rows(client: TestClient, **params) -> list[str]:
     import re
     html = client.get("/my-certifications", params=params).text
-    return re.findall(r'data-href="/my-certifications/(\d+)"', html)
+    return [int(i) for i in re.findall(r'data-href="/my-certifications/(\d+)"', html)]
 
 
 def test_bu_sees_only_its_business_unit(bu_client: TestClient) -> None:
     ids = _visible_rows(bu_client)
     assert len(ids) == 10
-    assert all(repo.get_indicator(i).business_unit.id == "DIG" for i in ids)
+    assert all(repo.get_indicator(i).business_unit.id == 3 for i in ids)
     assert '<span id="count-visible">10</span> / 10' in bu_client.get("/my-certifications").text
 
 
 def test_bu_head_sees_only_its_business_unit(bu_head_client: TestClient) -> None:
     ids = _visible_rows(bu_head_client)
-    assert ids and all(repo.get_indicator(i).business_unit.id == "INT" for i in ids)
+    assert ids and all(repo.get_indicator(i).business_unit.id == 4 for i in ids)
 
 
 @pytest.mark.parametrize("fixture", ["user_client", "admin_client"])
@@ -116,10 +116,10 @@ def test_cfo_and_admin_see_everything(request, fixture: str) -> None:
 
 
 def test_scope_applies_to_category_page(bu_client: TestClient) -> None:
-    html = bu_client.get("/my-certifications/category/OPS").text
+    html = bu_client.get("/my-certifications/category/3").text
     import re
-    ids = re.findall(r'data-href="/my-certifications/(\d+)"', html)
-    assert ids and all(repo.get_indicator(i).business_unit.id == "DIG" for i in ids)
+    ids = [int(i) for i in re.findall(r'data-href="/my-certifications/(\d+)"', html)]
+    assert ids and all(repo.get_indicator(i).business_unit.id == 3 for i in ids)
 
 
 def test_scope_applies_to_detail_page(bu_client: TestClient, bu_head_client: TestClient) -> None:
@@ -169,11 +169,11 @@ def test_statuses_are_displayed_as_model_values(bu_client: TestClient) -> None:
 def test_inline_certify_returns_to_filtered_list(bu_client: TestClient) -> None:
     response = bu_client.post(
         f"/my-certifications/{DIG_INDICATOR}/certify",
-        params={"return_to": "/my-certifications?category=OPS"},
+        params={"return_to": "/my-certifications?category=3"},
         data={"status": "acceptable", "comment": "depuis la liste"},
     )
     assert response.status_code == 303
-    assert response.headers["location"] == f"/my-certifications?category=OPS&saved={DIG_INDICATOR}"
+    assert response.headers["location"] == f"/my-certifications?category=3&saved={DIG_INDICATOR}"
 
     html = bu_client.get(response.headers["location"]).text
     assert "Certification de l'indicateur" in html

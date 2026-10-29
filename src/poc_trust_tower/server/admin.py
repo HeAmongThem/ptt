@@ -9,8 +9,10 @@ from poc_trust_tower.core.model import ROLE, CertificationStatus
 from poc_trust_tower.core.schemas import (
     BusinessUnitCreateSchema,
     CampaignCreateSchema,
+    CampaignIndicatorCreateSchema,
     CategoryCreateSchema,
     IndicatorCreateSchema,
+    SettingsSchema,
     UserCreateSchema,
     UserUpdateSchema,
 )
@@ -23,7 +25,7 @@ router = APIRouter(
     dependencies=[require_role(ROLE.ADMIN)],
 )
 
-Tab = Literal["business-units", "categories", "campaigns", "users", "indicators"]
+Tab = Literal["business-units", "categories", "campaigns", "users", "indicators", "campaign-indicators", "settings"]
 
 
 def _redirect(tab: Tab) -> RedirectResponse:
@@ -65,8 +67,31 @@ def admin_index(request: Request, tab: Tab = "categories"):
             "campaigns": repo.repoCampaigns,
             "users": repo.repoUsers,
             "indicators": repo.repoIndicators,
+            "home_message": repo.get_home_message(),
+            "active_campaigns": repo.active_campaigns(),
+            "campaign_indicators": repo.campaign_indicator_links(),
         },
     )
+
+
+# Campaign indicators =================================================
+@router.post("/campaign-indicators/new")
+def campaign_indicator_create(payload: Annotated[CampaignIndicatorCreateSchema, Form()]):
+    _run(repo.add_campaign_indicator, payload)
+    return _redirect("campaign-indicators")
+
+
+@router.post("/campaign-indicators/{campaign_id}/{indicator_id}/delete")
+def campaign_indicator_delete(campaign_id: int, indicator_id: int):
+    _run(repo.remove_campaign_indicator, campaign_id, indicator_id)
+    return _redirect("campaign-indicators")
+
+
+# Settings ============================================================
+@router.post("/settings")
+def settings_update(payload: Annotated[SettingsSchema, Form()]):
+    repo.update_settings(payload)
+    return _redirect("settings")
 
 
 # Business units ======================================================
@@ -84,7 +109,7 @@ def business_unit_create(payload: Annotated[BusinessUnitCreateSchema, Form()]):
 
 
 @router.get("/business-units/{bu_id}")
-def business_unit_edit(request: Request, bu_id: str):
+def business_unit_edit(request: Request, bu_id: int):
     item = _run(repo.get_business_unit, bu_id)
     return templates.TemplateResponse(
         request, "admin/business_unit_form.html", _form_context(title=f"Business unit {item.name}", item=item)
@@ -92,13 +117,13 @@ def business_unit_edit(request: Request, bu_id: str):
 
 
 @router.post("/business-units/{bu_id}")
-def business_unit_update(bu_id: str, payload: Annotated[BusinessUnitCreateSchema, Form()]):
+def business_unit_update(bu_id: int, payload: Annotated[BusinessUnitCreateSchema, Form()]):
     _run(repo.update_business_unit, bu_id, payload)
     return _redirect("business-units")
 
 
 @router.post("/business-units/{bu_id}/delete")
-def business_unit_delete(bu_id: str):
+def business_unit_delete(bu_id: int):
     _run(repo.delete_business_unit, bu_id)
     return _redirect("business-units")
 
@@ -118,7 +143,7 @@ def category_create(payload: Annotated[CategoryCreateSchema, Form()]):
 
 
 @router.get("/categories/{category_id}")
-def category_edit(request: Request, category_id: str):
+def category_edit(request: Request, category_id: int):
     item = repo.get_category(category_id)
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"category {category_id} not found")
@@ -128,13 +153,13 @@ def category_edit(request: Request, category_id: str):
 
 
 @router.post("/categories/{category_id}")
-def category_update(category_id: str, payload: Annotated[CategoryCreateSchema, Form()]):
+def category_update(category_id: int, payload: Annotated[CategoryCreateSchema, Form()]):
     _run(repo.update_category, category_id, payload)
     return _redirect("categories")
 
 
 @router.post("/categories/{category_id}/delete")
-def category_delete(category_id: str):
+def category_delete(category_id: int):
     _run(repo.delete_category, category_id)
     return _redirect("categories")
 
@@ -154,7 +179,7 @@ def campaign_create(payload: Annotated[CampaignCreateSchema, Form()]):
 
 
 @router.get("/campaigns/{campaign_id}")
-def campaign_edit(request: Request, campaign_id: str):
+def campaign_edit(request: Request, campaign_id: int):
     item = _run(repo.get_campaign, campaign_id)
     return templates.TemplateResponse(
         request, "admin/campaign_form.html", _form_context(title=f"Campagne {item.name}", item=item)
@@ -162,13 +187,13 @@ def campaign_edit(request: Request, campaign_id: str):
 
 
 @router.post("/campaigns/{campaign_id}")
-def campaign_update(campaign_id: str, payload: Annotated[CampaignCreateSchema, Form()]):
+def campaign_update(campaign_id: int, payload: Annotated[CampaignCreateSchema, Form()]):
     _run(repo.update_campaign, campaign_id, payload)
     return _redirect("campaigns")
 
 
 @router.post("/campaigns/{campaign_id}/delete")
-def campaign_delete(campaign_id: str):
+def campaign_delete(campaign_id: int):
     _run(repo.delete_campaign, campaign_id)
     return _redirect("campaigns")
 
@@ -188,7 +213,7 @@ def user_create(payload: Annotated[UserCreateSchema, Form()]):
 
 
 @router.get("/users/{user_id}")
-def user_edit(request: Request, user_id: str):
+def user_edit(request: Request, user_id: int):
     item = _run(repo.get_user, user_id)
     return templates.TemplateResponse(
         request, "admin/user_form.html", _form_context(title=f"Utilisateur {item.email}", item=item)
@@ -196,13 +221,13 @@ def user_edit(request: Request, user_id: str):
 
 
 @router.post("/users/{user_id}")
-def user_update(user_id: str, payload: Annotated[UserUpdateSchema, Form()]):
+def user_update(user_id: int, payload: Annotated[UserUpdateSchema, Form()]):
     _run(repo.update_user, user_id, payload)
     return _redirect("users")
 
 
 @router.post("/users/{user_id}/delete")
-def user_delete(user_id: str):
+def user_delete(user_id: int):
     _run(repo.delete_user, user_id)
     return _redirect("users")
 
@@ -278,7 +303,7 @@ def indicator_import_template(ext: Literal["csv", "json", "xlsx"]):
 
 
 @router.get("/indicators/{indicator_id}")
-def indicator_edit(request: Request, indicator_id: str):
+def indicator_edit(request: Request, indicator_id: int):
     item = _run(repo.get_indicator, indicator_id)
     return templates.TemplateResponse(
         request, "admin/indicator_form.html", _form_context(title=f"Indicateur {item.id}", item=item)
@@ -286,12 +311,12 @@ def indicator_edit(request: Request, indicator_id: str):
 
 
 @router.post("/indicators/{indicator_id}")
-def indicator_update(indicator_id: str, payload: Annotated[IndicatorCreateSchema, Form()]):
+def indicator_update(indicator_id: int, payload: Annotated[IndicatorCreateSchema, Form()]):
     _run(repo.update_indicator, indicator_id, payload)
     return _redirect("indicators")
 
 
 @router.post("/indicators/{indicator_id}/delete")
-def indicator_delete(indicator_id: str):
+def indicator_delete(indicator_id: int):
     _run(repo.delete_indicator, indicator_id)
     return _redirect("indicators")

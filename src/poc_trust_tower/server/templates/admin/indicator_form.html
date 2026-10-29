@@ -26,7 +26,7 @@
         {{ f.input("value_previous", "Valeur précédente", item.value_previous if item else "", type="number", step="any",
                    help="La variation est recalculée automatiquement.") }}
         {{ f.textarea("comment_analysis", "Commentaire / analyse", item.comment_analysis if item else "", col="col-md-12") }}
-        {{ f.input("comment_emr_id", "Commentaire EMR", item.comment_emr_id if item else "", required=False) }}
+        {{ f.input("comment_emr", "Commentaire EMR", item.comment_emr if item else "", required=False) }}
 
         <h2 class="h6 text-muted border-bottom pb-1 mb-0 mt-4">Seuils (ordre croissant ou décroissant selon le sens de l'indicateur)</h2>
         {{ f.input("thresold_certified_without_reserves", "Certifié sans réserves", item.thresold_certified_without_reserves if item else "", type="number", step="any", col="col-md-3") }}

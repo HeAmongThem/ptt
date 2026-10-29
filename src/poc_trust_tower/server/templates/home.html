@@ -1,11 +1,52 @@
-{% extends "layout.html" %} {%block content%}
-<div>
-    <h1>Template jinja2 extends block</h1>
-    <h2>List</h2>
-    <ul>
-        {% for data in datas%}
-        <li>{{data}}</li>
-        {% endfor%}
-    </ul>
+{% extends "layout.html" %}
+
+{% block header %}
+<h1 class="h3 my-3">POC Trust Tower</h1>
+{% endblock header %}
+
+{% block content %}
+<div class="container py-3">
+    <div class="card card-modern mb-4">
+        <div class="card-header">Information</div>
+        <div class="card-body">
+            <p class="lead mb-0" id="home-message">{{ home_message }}</p>
+        </div>
+    </div>
+
+    <div class="card card-modern">
+        <div class="card-header">Campagnes actives</div>
+        {% if campaigns %}
+        <table class="table table-modern mb-0" id="active-campaigns">
+            <thead>
+                <tr>
+                    <th scope="col">Campagne</th>
+                    <th scope="col">Début</th>
+                    <th scope="col">Fin</th>
+                    <th scope="col">Indicateurs</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in campaigns %}
+                <tr>
+                    <td>{{ c.name }}</td>
+                    <td class="text-center text-nowrap">{{ c.start_date.strftime("%d/%m/%Y") }}</td>
+                    <td class="text-center text-nowrap">{{ c.end_date.strftime("%d/%m/%Y") }}</td>
+                    <td class="text-center">{{ c.indicators|length }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="card-body text-muted">Aucune campagne active actuellement.</div>
+        {% endif %}
+    </div>
+
+    <div class="mt-4">
+        {% if current_user %}
+        <a href="/my-certifications" class="btn btn-primary">Accéder à mes certifications</a>
+        {% else %}
+        <a href="/login" class="btn btn-primary">Se connecter</a>
+        {% endif %}
+    </div>
 </div>
-{%endblock content%}
+{% endblock content %}

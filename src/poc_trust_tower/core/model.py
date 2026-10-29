@@ -4,19 +4,19 @@ from enum import Enum
 
 @dataclass
 class BusinessUnit:
-   id: str
+   id: int
    name: str
 
 
 @dataclass
 class Category:
-   id: str
+   id: int
    name: str
 
 
 @dataclass
 class User:
-   id: str
+   id: int
    email: str
    password: str
    business_unit: BusinessUnit
@@ -40,7 +40,7 @@ class ROLE (str, Enum):
 
 @dataclass
 class Campaign:
-   id: str
+   id: int
    name: str
    start_date: datetime
    end_date: datetime
@@ -48,7 +48,7 @@ class Campaign:
 
 @dataclass
 class Indicator:
-   id: str
+   id: int
    category: Category
    nature_of_information: str
    description_action_expected: str
@@ -66,10 +66,15 @@ class Indicator:
    certification_bu: str
    certification_bu_head: str
    certification_cfo: str
-   comment_emr_id: str
+   comment_emr: str
    comment_bu: str
    comment_bu_head: str
    comment_cfo: str
    business_unit: BusinessUnit
    created_at: datetime
    updated_at: datetime
+
+@dataclass
+class CampaignIndicator:
+   campain_id: int
+   indicateur_id: int

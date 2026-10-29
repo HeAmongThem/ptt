@@ -27,8 +27,8 @@ REQUIRED_COLUMNS: list[str] = [
 ]
 
 _SAMPLE_ROW: dict[str, Any] = {
-    "category_id": "FIN",
-    "business_unit_id": "RET",
+    "category_id": 1,
+    "business_unit_id": 1,
     "nature_of_information": "Quantitatif",
     "description_action_expected": "Suivi du chiffre d'affaires mensuel",
     "availability_date": "2026-11-01T09:00",
@@ -44,7 +44,7 @@ _SAMPLE_ROW: dict[str, Any] = {
     "certification_bu": "pending",
     "certification_bu_head": "pending",
     "certification_cfo": "pending",
-    "comment_emr_id": "",
+    "comment_emr": "",
     "comment_bu": "",
     "comment_bu_head": "",
     "comment_cfo": "",

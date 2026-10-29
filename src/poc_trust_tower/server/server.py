@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
+from poc_trust_tower.core import repository as repo
 from poc_trust_tower.server.admin import router as admin_router
 from poc_trust_tower.server.auth import NotAuthenticated
 from poc_trust_tower.server.auth import router as auth_router
@@ -61,7 +62,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 @app.get("/", include_in_schema=False,)
 async def index(request: Request):
-    datas: list[int] = [1, 2, 3, 4, 5]
     return templates.TemplateResponse(
-        request, "home.html", context={"datas": datas, "title": "home"}
+        request,
+        "home.html",
+        context={
+            "title": "Accueil",
+            "home_message": repo.get_home_message(),
+            "campaigns": repo.active_campaigns(),
+        },
     )

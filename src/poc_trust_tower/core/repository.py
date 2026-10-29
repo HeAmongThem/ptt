@@ -5,6 +5,7 @@ from poc_trust_tower.core.model import (
     ROLE,
     BusinessUnit,
     Campaign,
+    CampaignIndicator,
     Category,
     CertificationStatus,
     Indicator,
@@ -14,9 +15,11 @@ from poc_trust_tower.core.security import DEMO_ROUNDS, hash_password
 from poc_trust_tower.core.schemas import (
     BusinessUnitCreateSchema,
     CampaignCreateSchema,
+    CampaignIndicatorCreateSchema,
     CategoryCreateSchema,
     CertificationSchema,
     IndicatorCreateSchema,
+    SettingsSchema,
     UserCreateSchema,
     UserUpdateSchema,
 )
@@ -26,21 +29,16 @@ VariationFilter = Literal["all", "up", "down", "stable"]
 _NOW = datetime(2026, 10, 1, 9, 0, 0)
 
 # Business units ======================================================
+# (slug utilisé pour les emails de démonstration, nom)
+_BU_SEED = [("ret", "BU Retail"), ("corp", "BU Corporate"), ("dig", "BU Digital"), ("int", "BU International"), ("serv", "BU Services")]
 repoBusinessUnits: list[BusinessUnit] = [
-    BusinessUnit(id="RET", name="BU Retail"),
-    BusinessUnit(id="CORP", name="BU Corporate"),
-    BusinessUnit(id="DIG", name="BU Digital"),
-    BusinessUnit(id="INT", name="BU International"),
-    BusinessUnit(id="SERV", name="BU Services"),
+    BusinessUnit(id=index, name=name) for index, (_, name) in enumerate(_BU_SEED, start=1)
 ]
 
 # Categories ==========================================================
 repoCategories: list[Category] = [
-    Category(id="FIN", name="Finance"),
-    Category(id="RH", name="RH"),
-    Category(id="OPS", name="Operations"),
-    Category(id="RSK", name="Risques"),
-    Category(id="CONF", name="Conformite"),
+    Category(id=index, name=name)
+    for index, name in enumerate(["Finance", "RH", "Operations", "Risques", "Conformite"], start=1)
 ]
 
 # Users ===============================================================
@@ -50,16 +48,15 @@ def _demo_hash(password: str) -> str:
 
 def _build_users() -> list[User]:
     users = [
-        User(id="1", email="admin@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[0], role=ROLE.ADMIN),
-        User(id="2", email="cfo@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[1], role=ROLE.CFO),
-        User(id="3", email="bu@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[2], role=ROLE.BU),
-        User(id="4", email="buHead@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[3], role=ROLE.BU_HEAD),
+        User(id=1, email="admin@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[0], role=ROLE.ADMIN),
+        User(id=2, email="cfo@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[1], role=ROLE.CFO),
+        User(id=3, email="bu@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[2], role=ROLE.BU),
+        User(id=4, email="buHead@trust-tower.example", password=_demo_hash("aaa"), business_unit=repoBusinessUnits[3], role=ROLE.BU_HEAD),
     ]
     next_id = len(users) + 1
-    for bu in repoBusinessUnits:
-        slug = bu.id.lower()
-        users.append(User(id=str(next_id), email=f"bu.{slug}@trust-tower.example", password=_demo_hash("bu"), business_unit=bu, role=ROLE.BU))
-        users.append(User(id=str(next_id + 1), email=f"bu-head.{slug}@trust-tower.example", password=_demo_hash("bu-head"), business_unit=bu, role=ROLE.BU_HEAD))
+    for (slug, _), bu in zip(_BU_SEED, repoBusinessUnits):
+        users.append(User(id=next_id, email=f"bu.{slug}@trust-tower.example", password=_demo_hash("bu"), business_unit=bu, role=ROLE.BU))
+        users.append(User(id=next_id + 1, email=f"bu-head.{slug}@trust-tower.example", password=_demo_hash("bu-head"), business_unit=bu, role=ROLE.BU_HEAD))
         next_id += 2
     return users
 
@@ -78,7 +75,7 @@ def _build_indicator(index: int) -> Indicator:
     value_previous = round(value - ((index % 11) - 5) * 1.5, 2)
     variation = round((value - value_previous) / value_previous * 100, 2) if value_previous else 0.0
     return Indicator(
-        id=f"{index}",
+        id=index,
         category=repoCategories[index % len(repoCategories)],
         nature_of_information=_NATURES[index % len(_NATURES)],
         description_action_expected=f"Suivi de l'indicateur {index} et plan d'action associe",
@@ -96,7 +93,7 @@ def _build_indicator(index: int) -> Indicator:
         certification_bu=_STATUSES[index % len(_STATUSES)],
         certification_bu_head=_STATUSES[index % len(_STATUSES)],
         certification_cfo=_STATUSES[(index + 1) % len(_STATUSES)],
-        comment_emr_id=f"EMR-{1000 + index}",
+        comment_emr=f"EMR-{1000 + index}",
         comment_bu=f"Commentaire BU sur l'indicateur {index}",
         comment_bu_head=f"Commentaire du responsable BU sur l'indicateur {index}",
         comment_cfo=f"Commentaire CFO sur l'indicateur {index}",
@@ -116,11 +113,11 @@ def _build_campaigns() -> list[Campaign]:
         end = datetime(2026 + (quarter == 3), (1 + (quarter + 1) * 3) % 12 or 12, 1) - timedelta(days=1)
         campaigns.append(
             Campaign(
-                id=str(quarter + 1),
+                id=quarter + 1,
                 name=f"Campagne T{quarter + 1} 2026",
                 start_date=start,
                 end_date=end,
-                indicators=[i for i in repoIndicators if int(i.id) % 4 == quarter],
+                indicators=[i for i in repoIndicators if i.id % 4 == quarter],
             )
         )
     return campaigns
@@ -128,8 +125,13 @@ def _build_campaigns() -> list[Campaign]:
 
 repoCampaigns: list[Campaign] = _build_campaigns()
 
+# Campaign indicators (table d'association) ============================
+repoCampaignIndicators: list[CampaignIndicator] = [
+    CampaignIndicator(campain_id=c.id, indicateur_id=i.id) for c in repoCampaigns for i in c.indicators
+]
+
 # Queries =============================================================
-def get_category(category_id: str) -> Category | None:
+def get_category(category_id: int) -> Category | None:
     return next((c for c in repoCategories if c.id == category_id), None)
 
 
@@ -144,7 +146,7 @@ def variation_kind(indicator: Indicator) -> VariationFilter:
 def filter_indicators(
     indicators: list[Indicator],
     *,
-    category: str | None = None,
+    category: int | None = None,
     variation: VariationFilter = "all",
     bu: str | None = None,
     bu_head: str | None = None,
@@ -153,7 +155,7 @@ def filter_indicators(
     return [
         i
         for i in indicators
-        if (not category or i.category.id == category)
+        if (category is None or i.category.id == category)
         and (variation == "all" or variation_kind(i) == variation)
         and (not bu or i.certification_bu == bu)
         and (not bu_head or i.certification_bu_head == bu_head)
@@ -185,55 +187,55 @@ class ForbiddenError(PermissionError):
     pass
 
 
-def _next_id(items: list) -> str:
-    numeric = [int(i.id) for i in items if i.id.isdigit()]
-    return str(max(numeric, default=0) + 1)
+def _next_id(items: list) -> int:
+    return max((i.id for i in items), default=0) + 1
 
 
-def _find(items: list, item_id: str, label: str):
+def _find(items: list, item_id: int, label: str):
     item = next((i for i in items if i.id == item_id), None)
     if item is None:
         raise NotFoundError(f"{label} {item_id} not found")
     return item
 
 
-def get_business_unit(bu_id: str) -> BusinessUnit:
+def get_business_unit(bu_id: int) -> BusinessUnit:
     return _find(repoBusinessUnits, bu_id, "business unit")
 
 
-def get_user(user_id: str) -> User:
+def get_user(user_id: int) -> User:
     return _find(repoUsers, user_id, "user")
 
 
-def get_indicator(indicator_id: str) -> Indicator:
+def get_indicator(indicator_id: int) -> Indicator:
     return _find(repoIndicators, indicator_id, "indicator")
 
 
-def get_campaign(campaign_id: str) -> Campaign:
+def get_campaign(campaign_id: int) -> Campaign:
     return _find(repoCampaigns, campaign_id, "campaign")
 
 
 # --- Business units ---------------------------------------------------
-def _id_from_name(name: str, fallback: list) -> str:
-    return "".join(ch for ch in name.upper() if ch.isalnum())[:10] or _next_id(fallback)
+def _name_taken(items: list, name: str, exclude=None) -> bool:
+    return any(i.name.casefold() == name.casefold() and i is not exclude for i in items)
 
 
 def create_business_unit(payload: BusinessUnitCreateSchema) -> BusinessUnit:
-    bu_id = _id_from_name(payload.name, repoBusinessUnits)
-    if any(bu.id == bu_id for bu in repoBusinessUnits):
-        raise ConflictError(f"business unit {bu_id} already exists")
-    bu = BusinessUnit(id=bu_id, name=payload.name)
+    if _name_taken(repoBusinessUnits, payload.name):
+        raise ConflictError(f"business unit '{payload.name}' already exists")
+    bu = BusinessUnit(id=_next_id(repoBusinessUnits), name=payload.name)
     repoBusinessUnits.append(bu)
     return bu
 
 
-def update_business_unit(bu_id: str, payload: BusinessUnitCreateSchema) -> BusinessUnit:
+def update_business_unit(bu_id: int, payload: BusinessUnitCreateSchema) -> BusinessUnit:
     bu = get_business_unit(bu_id)
+    if _name_taken(repoBusinessUnits, payload.name, exclude=bu):
+        raise ConflictError(f"business unit '{payload.name}' already exists")
     bu.name = payload.name
     return bu
 
 
-def delete_business_unit(bu_id: str) -> None:
+def delete_business_unit(bu_id: int) -> None:
     bu = get_business_unit(bu_id)
     if any(u.business_unit is bu for u in repoUsers):
         raise ConflictError(f"business unit {bu_id} is used by users")
@@ -243,26 +245,23 @@ def delete_business_unit(bu_id: str) -> None:
 
 
 # --- Categories -------------------------------------------------------
-def _category_id_from_name(name: str) -> str:
-    return _id_from_name(name, repoCategories)
-
-
 def create_category(payload: CategoryCreateSchema) -> Category:
-    category_id = _category_id_from_name(payload.name)
-    if any(c.id == category_id for c in repoCategories):
-        raise ConflictError(f"category {category_id} already exists")
-    category = Category(id=category_id, name=payload.name)
+    if _name_taken(repoCategories, payload.name):
+        raise ConflictError(f"category '{payload.name}' already exists")
+    category = Category(id=_next_id(repoCategories), name=payload.name)
     repoCategories.append(category)
     return category
 
 
-def update_category(category_id: str, payload: CategoryCreateSchema) -> Category:
+def update_category(category_id: int, payload: CategoryCreateSchema) -> Category:
     category = _find(repoCategories, category_id, "category")
+    if _name_taken(repoCategories, payload.name, exclude=category):
+        raise ConflictError(f"category '{payload.name}' already exists")
     category.name = payload.name
     return category
 
 
-def delete_category(category_id: str) -> None:
+def delete_category(category_id: int) -> None:
     category = _find(repoCategories, category_id, "category")
     if any(i.category is category for i in repoIndicators):
         raise ConflictError(f"category {category_id} is used by indicators")
@@ -284,7 +283,7 @@ def create_user(payload: UserCreateSchema) -> User:
     return user
 
 
-def update_user(user_id: str, payload: UserUpdateSchema) -> User:
+def update_user(user_id: int, payload: UserUpdateSchema) -> User:
     user = get_user(user_id)
     if any(u.email == payload.email and u is not user for u in repoUsers):
         raise ConflictError(f"user {payload.email} already exists")
@@ -296,7 +295,7 @@ def update_user(user_id: str, payload: UserUpdateSchema) -> User:
     return user
 
 
-def delete_user(user_id: str) -> None:
+def delete_user(user_id: int) -> None:
     repoUsers.remove(get_user(user_id))
 
 
@@ -314,7 +313,7 @@ def _apply_indicator_payload(indicator: Indicator, payload: IndicatorCreateSchem
         "thresold_certified_without_reserves", "thresold_acceptable",
         "thresold_certified_with_significant_reserves", "thresold_not_certified",
         "certification_bu", "certification_bu_head", "certification_cfo",
-        "comment_emr_id", "comment_bu", "comment_bu_head", "comment_cfo",
+        "comment_emr", "comment_bu", "comment_bu_head", "comment_cfo",
     ):
         setattr(indicator, field, getattr(payload, field))
     indicator.variation = _compute_variation(payload.value, payload.value_previous)
@@ -337,26 +336,35 @@ def create_indicator(payload: IndicatorCreateSchema) -> Indicator:
     return indicator
 
 
-def update_indicator(indicator_id: str, payload: IndicatorCreateSchema) -> Indicator:
+def update_indicator(indicator_id: int, payload: IndicatorCreateSchema) -> Indicator:
     indicator = get_indicator(indicator_id)
     _apply_indicator_payload(indicator, payload)
     return indicator
 
 
-def delete_indicator(indicator_id: str) -> None:
+def delete_indicator(indicator_id: int) -> None:
     indicator = get_indicator(indicator_id)
     for campaign in repoCampaigns:
         if indicator in campaign.indicators:
             campaign.indicators.remove(indicator)
+    repoCampaignIndicators[:] = [l for l in repoCampaignIndicators if l.indicateur_id != indicator.id]
     repoIndicators.remove(indicator)
 
 
 # --- Campaigns --------------------------------------------------------
+def _sync_campaign_links(campaign: Campaign) -> None:
+    """Aligne repoCampaignIndicators sur campaign.indicators (source : la campagne)."""
+    repoCampaignIndicators[:] = [l for l in repoCampaignIndicators if l.campain_id != campaign.id] + [
+        CampaignIndicator(campain_id=campaign.id, indicateur_id=i.id) for i in campaign.indicators
+    ]
+
+
 def _apply_campaign_payload(campaign: Campaign, payload: CampaignCreateSchema) -> None:
     campaign.name = payload.name
     campaign.start_date = payload.start_date
     campaign.end_date = payload.end_date
-    campaign.indicators = [get_indicator(i) for i in payload.indicator_ids]
+    campaign.indicators = [get_indicator(i) for i in dict.fromkeys(payload.indicator_ids)]
+    _sync_campaign_links(campaign)
 
 
 def create_campaign(payload: CampaignCreateSchema) -> Campaign:
@@ -366,14 +374,49 @@ def create_campaign(payload: CampaignCreateSchema) -> Campaign:
     return campaign
 
 
-def update_campaign(campaign_id: str, payload: CampaignCreateSchema) -> Campaign:
+def update_campaign(campaign_id: int, payload: CampaignCreateSchema) -> Campaign:
     campaign = get_campaign(campaign_id)
     _apply_campaign_payload(campaign, payload)
     return campaign
 
 
-def delete_campaign(campaign_id: str) -> None:
-    repoCampaigns.remove(get_campaign(campaign_id))
+def delete_campaign(campaign_id: int) -> None:
+    campaign = get_campaign(campaign_id)
+    repoCampaignIndicators[:] = [l for l in repoCampaignIndicators if l.campain_id != campaign.id]
+    repoCampaigns.remove(campaign)
+
+
+# --- Campaign indicators ----------------------------------------------
+def campaign_indicator_links() -> list[tuple[CampaignIndicator, Campaign, Indicator]]:
+    """Liens résolus (lien, campagne, indicateur), triés par campagne puis indicateur."""
+    campaigns = {c.id: c for c in repoCampaigns}
+    indicators = {i.id: i for i in repoIndicators}
+    resolved = [
+        (link, campaigns[link.campain_id], indicators[link.indicateur_id])
+        for link in repoCampaignIndicators
+        if link.campain_id in campaigns and link.indicateur_id in indicators
+    ]
+    return sorted(resolved, key=lambda t: (t[1].id, t[2].id))
+
+
+def add_campaign_indicator(payload: CampaignIndicatorCreateSchema) -> CampaignIndicator:
+    campaign = get_campaign(payload.campain_id)
+    indicator = get_indicator(payload.indicateur_id)
+    if any(l.campain_id == campaign.id and l.indicateur_id == indicator.id for l in repoCampaignIndicators):
+        raise ConflictError(f"indicator {indicator.id} is already in campaign {campaign.id}")
+    link = CampaignIndicator(campain_id=campaign.id, indicateur_id=indicator.id)
+    repoCampaignIndicators.append(link)
+    campaign.indicators.append(indicator)
+    return link
+
+
+def remove_campaign_indicator(campaign_id: int, indicator_id: int) -> None:
+    campaign = get_campaign(campaign_id)
+    link = next((l for l in repoCampaignIndicators if l.campain_id == campaign_id and l.indicateur_id == indicator_id), None)
+    if link is None:
+        raise NotFoundError(f"indicator {indicator_id} is not in campaign {campaign_id}")
+    repoCampaignIndicators.remove(link)
+    campaign.indicators[:] = [i for i in campaign.indicators if i.id != indicator_id]
 
 
 # Certification ========================================================
@@ -398,7 +441,7 @@ def can_certify(user: User, indicator: Indicator) -> bool:
     return certification_denial(user, indicator) is None
 
 
-def certify_indicator(indicator_id: str, user: User, payload: CertificationSchema) -> Indicator:
+def certify_indicator(indicator_id: int, user: User, payload: CertificationSchema) -> Indicator:
     indicator = get_indicator(indicator_id)
     denial = certification_denial(user, indicator)
     if denial:
@@ -420,3 +463,30 @@ def can_view_indicator(user: User, indicator: Indicator) -> bool:
 
 def visible_indicators(user: User) -> list[Indicator]:
     return [i for i in repoIndicators if can_view_indicator(user, i)]
+
+
+# Settings ==============================================================
+DEFAULT_HOME_MESSAGE = (
+    "Application POC Trust Tower. "
+    "Un outil d'aide et de suivi de certification d'indicateurs."
+)
+
+repoSettings: dict[str, str] = {"home_message": DEFAULT_HOME_MESSAGE}
+
+
+def get_home_message() -> str:
+    return repoSettings["home_message"]
+
+
+def update_settings(payload: SettingsSchema) -> None:
+    repoSettings["home_message"] = payload.home_message.strip()
+
+
+# Campagnes actives =====================================================
+def active_campaigns(at: datetime | None = None) -> list[Campaign]:
+    """Campagnes dont la période couvre la date donnée (aujourd'hui par défaut)."""
+    now = at or datetime.now()
+    return sorted(
+        (c for c in repoCampaigns if c.start_date <= now <= c.end_date),
+        key=lambda c: c.end_date,
+    )

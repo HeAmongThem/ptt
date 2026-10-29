@@ -30,8 +30,13 @@ def my_certifications(
     cfo: Annotated[str, Query()] = "",
     saved: Annotated[str, Query()] = "",
 ):
+    # Le select "Toutes" du formulaire envoie une chaîne vide.
+    try:
+        category_id = int(category) if category.strip() else None
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="query.category: must be an integer") from exc
     filters = {
-        "category": category,
+        "category": category_id,
         "variation": variation,
         "bu": bu,
         "bu_head": bu_head,
@@ -67,13 +72,13 @@ def my_certifications(
 
 
 @router.get("/category/{category}")
-def my_certifications_by_category(request: Request, category: str, user: CurrentUserDep):
+def my_certifications_by_category(request: Request, category: int, user: CurrentUserDep):
     if repo.get_category(category) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"category {category} not found")
-    return my_certifications(request, user, category=category)
+    return my_certifications(request, user, category=str(category))
 
 
-def _get_visible_indicator(indicator_id: str, user):
+def _get_visible_indicator(indicator_id: int, user):
     try:
         indicator = repo.get_indicator(indicator_id)
     except repo.NotFoundError as exc:
@@ -87,7 +92,7 @@ def _get_visible_indicator(indicator_id: str, user):
 
 
 @router.get("/{indicator_id}")
-def my_certifications_by_id(request: Request, indicator_id: str, user: CurrentUserDep, saved: bool = False):
+def my_certifications_by_id(request: Request, indicator_id: int, user: CurrentUserDep, saved: bool = False):
     indicator = _get_visible_indicator(indicator_id, user)
     fields = repo.CERTIFICATION_FIELDS.get(user.role)
     denial = repo.certification_denial(user, indicator)
@@ -114,7 +119,7 @@ def _is_internal_path(target: str) -> bool:
 
 @router.post("/{indicator_id}/certify")
 def my_certifications_certify(
-    indicator_id: str,
+    indicator_id: int,
     user: CurrentUserDep,
     payload: Annotated[CertificationSchema, Form()],
     return_to: Annotated[str, Query()] = "",

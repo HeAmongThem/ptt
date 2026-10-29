@@ -18,7 +18,7 @@ class _Schema(BaseModel):
 
 # Business units ======================================================
 class BusinessUnitSchema(_Schema):
-    id: str
+    id: int
     name: str
 
 
@@ -28,7 +28,7 @@ class BusinessUnitCreateSchema(BaseModel):
 
 # Categories ==========================================================
 class CategorySchema(_Schema):
-    id: str
+    id: int
     name: str
 
 
@@ -40,7 +40,7 @@ class CategoryCreateSchema(BaseModel):
 class UserSchema(_Schema):
     """Vue publique d'un utilisateur : le mot de passe n'est jamais exposé."""
 
-    id: str
+    id: int
     email: EmailStr
     business_unit: BusinessUnitSchema
     role: ROLE
@@ -51,7 +51,7 @@ class UserCreateSchema(BaseModel):
 
     email: EmailStr
     password: str = Field(min_length=4)
-    business_unit_id: str
+    business_unit_id: int
     role: ROLE
 
 
@@ -60,7 +60,7 @@ class UserUpdateSchema(BaseModel):
 
     email: EmailStr
     password: str = ""
-    business_unit_id: str
+    business_unit_id: int
     role: ROLE
 
     @model_validator(mode="after")
@@ -72,7 +72,7 @@ class UserUpdateSchema(BaseModel):
 
 # Indicators ==========================================================
 class IndicatorSchema(_Schema):
-    id: str
+    id: int
     category: CategorySchema
     nature_of_information: str
     description_action_expected: str
@@ -90,7 +90,7 @@ class IndicatorSchema(_Schema):
     certification_bu: str
     certification_bu_head: str
     certification_cfo: str
-    comment_emr_id: str
+    comment_emr: str
     comment_bu: str
     comment_bu_head: str
     comment_cfo: str
@@ -106,8 +106,8 @@ class IndicatorCreateSchema(BaseModel):
     les statuts de certification démarrent à `pending` et les commentaires vides.
     """
 
-    category_id: str
-    business_unit_id: str
+    category_id: int
+    business_unit_id: int
     nature_of_information: str = Field(min_length=1)
     description_action_expected: str = Field(min_length=1)
     availability_date: datetime
@@ -123,7 +123,7 @@ class IndicatorCreateSchema(BaseModel):
     certification_bu: str = CertificationStatus.pending.name
     certification_bu_head: str = CertificationStatus.pending.name
     certification_cfo: str = CertificationStatus.pending.name
-    comment_emr_id: str = ""
+    comment_emr: str = ""
     comment_bu: str = ""
     comment_bu_head: str = ""
     comment_cfo: str = ""
@@ -161,9 +161,16 @@ class CertificationSchema(BaseModel):
         return value
 
 
+# Settings =============================================================
+class SettingsSchema(BaseModel):
+    """Paramètres d'affichage modifiables depuis l'administration."""
+
+    home_message: str = Field(min_length=1, max_length=1000)
+
+
 # Campaigns ===========================================================
 class CampaignSchema(_Schema):
-    id: str
+    id: int
     name: str
     start_date: datetime
     end_date: datetime
@@ -176,10 +183,22 @@ class CampaignCreateSchema(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     start_date: datetime
     end_date: datetime
-    indicator_ids: list[str] = Field(default_factory=list)
+    indicator_ids: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_dates(self) -> "CampaignCreateSchema":
         if self.end_date < self.start_date:
             raise ValueError("end_date must be after start_date")
         return self
+
+
+class CampaignIndicatorSchema(_Schema):
+    campain_id: int
+    indicateur_id: int
+
+
+class CampaignIndicatorCreateSchema(BaseModel):
+    """Association d'un indicateur à une campagne (noms de champs du modèle)."""
+
+    campain_id: int
+    indicateur_id: int

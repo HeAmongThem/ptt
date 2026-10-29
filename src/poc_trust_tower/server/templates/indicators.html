@@ -164,7 +164,7 @@
                     <td class="small text-nowrap status-{{ current }}">{{ current|humanize }}</td>
                     {% endif %}
                     {% endfor %}
-                    <td>{{ indicator.comment_emr_id }}</td>
+                    <td>{{ indicator.comment_emr }}</td>
                     {% for status_field, comment_field, level in level_headers %}
                     {% if editable and status_field == my_status_field %}
                     <td class="cell-text">
