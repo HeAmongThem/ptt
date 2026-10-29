@@ -1,0 +1,50 @@
+{% extends "layout.html" %}
+{% import "admin/_macros.html" as f %}
+
+{% block header %}
+<h1 class="h3 my-3">{{ title }}</h1>
+{% endblock header %}
+
+{% block content %}
+<div class="container py-3">
+    <form method="post" class="row g-3">
+        <h2 class="h6 text-muted border-bottom pb-1 mb-0">Identification</h2>
+        {% set cat_options = [] %}
+        {% for c in categories %}{% set _ = cat_options.append((c.id, c.name)) %}{% endfor %}
+        {{ f.select("category_id", "Catégorie", cat_options, item.category.id if item else "") }}
+        {% set bu_options = [] %}
+        {% for bu in business_units %}{% set _ = bu_options.append((bu.id, bu.name)) %}{% endfor %}
+        {{ f.select("business_unit_id", "Business unit", bu_options, item.business_unit.id if item else "") }}
+        {{ f.input("nature_of_information", "Nature de l'information", item.nature_of_information if item else "") }}
+        {{ f.input("validation_committee", "Comité de validation", item.validation_committee if item else "") }}
+        {{ f.textarea("description_action_expected", "Description / action attendue", item.description_action_expected if item else "", col="col-md-12") }}
+        {{ f.input("availability_date", "Date de disponibilité", item.availability_date.strftime("%Y-%m-%dT%H:%M") if item else "", type="datetime-local") }}
+        {{ f.input("unit", "Unité", item.unit if item else "") }}
+
+        <h2 class="h6 text-muted border-bottom pb-1 mb-0 mt-4">Valeurs</h2>
+        {{ f.input("value", "Valeur", item.value if item else "", type="number", step="any") }}
+        {{ f.input("value_previous", "Valeur précédente", item.value_previous if item else "", type="number", step="any",
+                   help="La variation est recalculée automatiquement.") }}
+        {{ f.textarea("comment_analysis", "Commentaire / analyse", item.comment_analysis if item else "", col="col-md-12") }}
+        {{ f.input("comment_emr_id", "Commentaire EMR", item.comment_emr_id if item else "", required=False) }}
+
+        <h2 class="h6 text-muted border-bottom pb-1 mb-0 mt-4">Seuils (décroissants)</h2>
+        {{ f.input("thresold_certified_without_reserves", "Certifié sans réserves", item.thresold_certified_without_reserves if item else "", type="number", step="any", col="col-md-3") }}
+        {{ f.input("thresold_acceptable", "Acceptable", item.thresold_acceptable if item else "", type="number", step="any", col="col-md-3") }}
+        {{ f.input("thresold_certified_with_significant_reserves", "Réserves significatives", item.thresold_certified_with_significant_reserves if item else "", type="number", step="any", col="col-md-3") }}
+        {{ f.input("thresold_not_certified", "Non certifié", item.thresold_not_certified if item else "", type="number", step="any", col="col-md-3") }}
+
+        <h2 class="h6 text-muted border-bottom pb-1 mb-0 mt-4">Certification</h2>
+        {% set status_options = [] %}
+        {% for s in statuses %}{% set _ = status_options.append((s, s|status_label)) %}{% endfor %}
+        {{ f.select("certification_bu", "Statut BU", status_options, item.certification_bu if item else "pending", col="col-md-4") }}
+        {{ f.select("certification_bu_head", "Statut Resp. BU", status_options, item.certification_bu_head if item else "pending", col="col-md-4") }}
+        {{ f.select("certification_cfo", "Statut CFO", status_options, item.certification_cfo if item else "pending", col="col-md-4") }}
+        {{ f.textarea("comment_bu", "Commentaire BU", item.comment_bu if item else "", col="col-md-4") }}
+        {{ f.textarea("comment_bu_head", "Commentaire Resp. BU", item.comment_bu_head if item else "", col="col-md-4") }}
+        {{ f.textarea("comment_cfo", "Commentaire CFO", item.comment_cfo if item else "", col="col-md-4") }}
+
+        {{ f.actions("indicators", item) }}
+    </form>
+</div>
+{% endblock content %}

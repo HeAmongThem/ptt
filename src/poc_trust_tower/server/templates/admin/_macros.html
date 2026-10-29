@@ -1,0 +1,43 @@
+{# Macros de formulaire. Le "selected"/"checked" est calculé hors balise pour rester compatible avec les formateurs HTML. #}
+
+{% macro input(name, label, value="", type="text", required=True, step=None, help=None, col="col-md-6") %}
+{% set req = "required" if required else "" %}
+{% set stp = ('step="' ~ step ~ '"') if step else "" %}
+<div class="{{ col }}">
+    <label for="f-{{ name }}" class="form-label small mb-1">{{ label }}</label>
+    <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" class="form-control form-control-sm"
+           value="{{ value if value is not none else '' }}" {{ req }} {{ stp }}>
+    {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro textarea(name, label, value="", rows=2, col="col-md-6") %}
+<div class="{{ col }}">
+    <label for="f-{{ name }}" class="form-label small mb-1">{{ label }}</label>
+    <textarea id="f-{{ name }}" name="{{ name }}" rows="{{ rows }}" class="form-control form-control-sm">{{ value if value is not none else '' }}</textarea>
+</div>
+{% endmacro %}
+
+{# options : liste de (value, label) ; selected : valeur ou liste de valeurs #}
+{% macro select(name, label, options, selected, multiple=False, size=None, help=None, col="col-md-6") %}
+{% set selected_list = selected if selected is iterable and selected is not string else [selected] %}
+{% set mult = "multiple" if multiple else "" %}
+{% set sz = ('size="' ~ size ~ '"') if size else "" %}
+<div class="{{ col }}">
+    <label for="f-{{ name }}" class="form-label small mb-1">{{ label }}</label>
+    <select id="f-{{ name }}" name="{{ name }}" class="form-select form-select-sm" {{ mult }} {{ sz }} style="min-height: 300px;">
+        {% for value, text in options %}
+        {% set sel = "selected" if value in selected_list else "" %}
+        <option value="{{ value }}" {{ sel }}>{{ text }}</option>
+        {% endfor %}
+    </select>
+    {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro actions(back_tab, item) %}
+<div class="col-12 d-flex gap-2 mt-3">
+    <button type="submit" class="btn btn-primary btn-sm">{{ "Enregistrer" if item else "Créer" }}</button>
+    <a href="/admin?tab={{ back_tab }}" class="btn btn-outline-secondary btn-sm">Annuler</a>
+</div>
+{% endmacro %}

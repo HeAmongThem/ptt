@@ -10,6 +10,13 @@ from poc_trust_tower.core.model import (
     Indicator,
     User,
 )
+from poc_trust_tower.core.schemas import (
+    CampaignCreateSchema,
+    CategoryCreateSchema,
+    IndicatorCreateSchema,
+    UserCreateSchema,
+    UserUpdateSchema,
+)
 
 VariationFilter = Literal["all", "up", "down", "stable"]
 
@@ -155,3 +162,173 @@ def distinct_statuses(indicators: list[Indicator]) -> list[str]:
         | {i.certification_bu_head for i in indicators}
         | {i.certification_cfo for i in indicators}
     )
+
+# CRUD ================================================================
+class NotFoundError(LookupError):
+    pass
+
+
+class ConflictError(ValueError):
+    pass
+
+
+def _next_id(items: list) -> str:
+    numeric = [int(i.id) for i in items if i.id.isdigit()]
+    return str(max(numeric, default=0) + 1)
+
+
+def _find(items: list, item_id: str, label: str):
+    item = next((i for i in items if i.id == item_id), None)
+    if item is None:
+        raise NotFoundError(f"{label} {item_id} not found")
+    return item
+
+
+def get_business_unit(bu_id: str) -> BusinessUnit:
+    return _find(repoBusinessUnits, bu_id, "business unit")
+
+
+def get_user(user_id: str) -> User:
+    return _find(repoUsers, user_id, "user")
+
+
+def get_indicator(indicator_id: str) -> Indicator:
+    return _find(repoIndicators, indicator_id, "indicator")
+
+
+def get_campaign(campaign_id: str) -> Campaign:
+    return _find(repoCampaigns, campaign_id, "campaign")
+
+
+# --- Categories -------------------------------------------------------
+def _category_id_from_name(name: str) -> str:
+    return "".join(ch for ch in name.upper() if ch.isalnum())[:10] or _next_id(repoCategories)
+
+
+def create_category(payload: CategoryCreateSchema) -> Category:
+    category_id = _category_id_from_name(payload.name)
+    if any(c.id == category_id for c in repoCategories):
+        raise ConflictError(f"category {category_id} already exists")
+    category = Category(id=category_id, name=payload.name)
+    repoCategories.append(category)
+    return category
+
+
+def update_category(category_id: str, payload: CategoryCreateSchema) -> Category:
+    category = _find(repoCategories, category_id, "category")
+    category.name = payload.name
+    return category
+
+
+def delete_category(category_id: str) -> None:
+    category = _find(repoCategories, category_id, "category")
+    if any(i.category is category for i in repoIndicators):
+        raise ConflictError(f"category {category_id} is used by indicators")
+    repoCategories.remove(category)
+
+
+# --- Users ------------------------------------------------------------
+def create_user(payload: UserCreateSchema) -> User:
+    if any(u.email == payload.email for u in repoUsers):
+        raise ConflictError(f"user {payload.email} already exists")
+    user = User(
+        id=_next_id(repoUsers),
+        email=payload.email,
+        password=payload.password,
+        business_unit=get_business_unit(payload.business_unit_id),
+        role=payload.role,
+    )
+    repoUsers.append(user)
+    return user
+
+
+def update_user(user_id: str, payload: UserUpdateSchema) -> User:
+    user = get_user(user_id)
+    if any(u.email == payload.email and u is not user for u in repoUsers):
+        raise ConflictError(f"user {payload.email} already exists")
+    user.email = payload.email
+    user.business_unit = get_business_unit(payload.business_unit_id)
+    user.role = payload.role
+    if payload.password:
+        user.password = payload.password
+    return user
+
+
+def delete_user(user_id: str) -> None:
+    repoUsers.remove(get_user(user_id))
+
+
+# --- Indicators -------------------------------------------------------
+def _compute_variation(value: float, value_previous: float) -> float:
+    return round((value - value_previous) / value_previous * 100, 2) if value_previous else 0.0
+
+
+def _apply_indicator_payload(indicator: Indicator, payload: IndicatorCreateSchema) -> None:
+    indicator.category = _find(repoCategories, payload.category_id, "category")
+    indicator.business_unit = get_business_unit(payload.business_unit_id)
+    for field in (
+        "nature_of_information", "description_action_expected", "availability_date",
+        "validation_committee", "unit", "value", "value_previous", "comment_analysis",
+        "thresold_certified_without_reserves", "thresold_acceptable",
+        "thresold_certified_with_significant_reserves", "thresold_not_certified",
+        "certification_bu", "certification_bu_head", "certification_cfo",
+        "comment_emr_id", "comment_bu", "comment_bu_head", "comment_cfo",
+    ):
+        setattr(indicator, field, getattr(payload, field))
+    indicator.variation = _compute_variation(payload.value, payload.value_previous)
+    indicator.updated_at = datetime.now()
+
+
+def create_indicator(payload: IndicatorCreateSchema) -> Indicator:
+    now = datetime.now()
+    indicator = Indicator(
+        id=_next_id(repoIndicators),
+        category=_find(repoCategories, payload.category_id, "category"),
+        business_unit=get_business_unit(payload.business_unit_id),
+        variation=0.0,
+        created_at=now,
+        updated_at=now,
+        **payload.model_dump(exclude={"category_id", "business_unit_id"}),
+    )
+    indicator.variation = _compute_variation(indicator.value, indicator.value_previous)
+    repoIndicators.append(indicator)
+    return indicator
+
+
+def update_indicator(indicator_id: str, payload: IndicatorCreateSchema) -> Indicator:
+    indicator = get_indicator(indicator_id)
+    _apply_indicator_payload(indicator, payload)
+    return indicator
+
+
+def delete_indicator(indicator_id: str) -> None:
+    indicator = get_indicator(indicator_id)
+    for campaign in repoCampaigns:
+        if indicator in campaign.indicators:
+            campaign.indicators.remove(indicator)
+    repoIndicators.remove(indicator)
+
+
+# --- Campaigns --------------------------------------------------------
+def _apply_campaign_payload(campaign: Campaign, payload: CampaignCreateSchema) -> None:
+    campaign.name = payload.name
+    campaign.start_date = payload.start_date
+    campaign.end_date = payload.end_date
+    campaign.indicators = [get_indicator(i) for i in payload.indicator_ids]
+
+
+def create_campaign(payload: CampaignCreateSchema) -> Campaign:
+    campaign = Campaign(id=_next_id(repoCampaigns), name="", start_date=payload.start_date, end_date=payload.end_date, indicators=[])
+    _apply_campaign_payload(campaign, payload)
+    repoCampaigns.append(campaign)
+    return campaign
+
+
+def update_campaign(campaign_id: str, payload: CampaignCreateSchema) -> Campaign:
+    campaign = get_campaign(campaign_id)
+    _apply_campaign_payload(campaign, payload)
+    return campaign
+
+
+def delete_campaign(campaign_id: str) -> None:
+    repoCampaigns.remove(get_campaign(campaign_id))

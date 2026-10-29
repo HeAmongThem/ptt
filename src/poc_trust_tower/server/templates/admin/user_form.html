@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% import "admin/_macros.html" as f %}
+
+{% block header %}
+<h1 class="h3 my-3">{{ title }}</h1>
+{% endblock header %}
+
+{% block content %}
+<div class="container py-3">
+    <form method="post" class="row g-3">
+        {{ f.input("email", "Email", item.email if item else "", type="email") }}
+        {{ f.input("password", "Mot de passe", "", type="password", required=(item is none),
+                   help=("Laisser vide pour conserver le mot de passe actuel." if item else "4 caractères minimum.")) }}
+        {% set bu_options = [] %}
+        {% for bu in business_units %}{% set _ = bu_options.append((bu.id, bu.name)) %}{% endfor %}
+        {{ f.select("business_unit_id", "Business unit", bu_options, item.business_unit.id if item else "") }}
+        {% set role_options = [] %}
+        {% for r in roles %}{% set _ = role_options.append((r.value, r.value)) %}{% endfor %}
+        {{ f.select("role", "Rôle", role_options, item.role.value if item else "") }}
+        {{ f.actions("users", item) }}
+    </form>
+</div>
+{% endblock content %}

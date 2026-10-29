@@ -55,6 +55,21 @@ class UserCreateSchema(BaseModel):
     role: ROLE
 
 
+class UserUpdateSchema(BaseModel):
+    """Payload de mise à jour : mot de passe vide = inchangé."""
+
+    email: EmailStr
+    password: str = ""
+    business_unit_id: str
+    role: ROLE
+
+    @model_validator(mode="after")
+    def _check_password(self) -> "UserUpdateSchema":
+        if self.password and len(self.password) < 4:
+            raise ValueError("password must be at least 4 characters")
+        return self
+
+
 # Indicators ==========================================================
 class IndicatorSchema(_Schema):
     id: str

@@ -1,6 +1,5 @@
 import os
 from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -11,15 +10,13 @@ from poc_trust_tower.core.repository import (
     filter_indicators,
     get_category,
     repoIndicators,
-    variation_kind,
 )
+from poc_trust_tower.server.admin import router as admin_router
+from poc_trust_tower.server.templating import templates
 
 app = FastAPI()
 app.mount("/statics", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
-templates = Jinja2Templates(
-    directory=os.path.join(os.path.dirname(__file__), "templates")
-)
-templates.env.globals["variation_kind"] = variation_kind
+app.include_router(admin_router)
 
 
 #Errors==============================================================
@@ -140,73 +137,3 @@ async def my_certifications_certify(request: Request, id:str):
     pass
 
 #Certifications=======================================================
-
-
-
-#Admin===============================================================
-@app.get("/admin", include_in_schema=False)
-async def admin(request: Request ):
-    pass
-#--------------------------------------------------------------------
-@app.get("/admin/campaigns", include_in_schema=False)
-async def admin_campaigns(request: Request ):
-    pass
-
-@app.get("/admin/campaigns/{id:int}", include_in_schema=False)
-async def admin_campaigns_id(request: Request, id:int):
-    pass
-
-@app.post("/admin/campaigns/create", include_in_schema=False)
-async def admin_campaigns_create(request: Request ):
-    pass
-
-@app.put("/admin/campaigns/update", include_in_schema=False)
-async def admin_campaigns_update(request: Request ):
-    pass
-
-@app.delete("/admin/campaigns/delete/{id:int}", include_in_schema=False)
-async def admin_campaigns_delete(request: Request, id:int):
-    pass
-
-#--------------------------------------------------------------------
-@app.get("/admin/indicators/", include_in_schema=False)
-async def admin_indicators(request: Request ):
-    pass
-
-@app.post("/admin/indicators/create", include_in_schema=False)
-async def admin_indicators_create(request: Request ):
-    pass
-
-@app.put("/admin/indicators/update", include_in_schema=False)
-async def admin_indicators_update(request: Request ):
-    pass
-
-@app.delete("/admin/indicators/delete/{id}", include_in_schema=False)
-async def admin_indicators_delete(request: Request, id:int):
-    pass
-
-
-#--------------------------------------------------------------------
-@app.get("/admin/users/", include_in_schema=False)
-async def admin_users(request: Request ):
-    pass
-
-@app.get("/admin/users/{id:int}", include_in_schema=False)
-async def admin_users_by_id(request: Request, id:int):
-    pass
-
-@app.post("/admin/users/create", include_in_schema=False)
-async def admin_users_create(request: Request ):
-    pass
-
-@app.put("/admin/users/update", include_in_schema=False)
-async def admin_users_update(request: Request ):
-    pass
-
-@app.delete("/admin/users/delete/{id}", include_in_schema=False)
-async def admin_users_delete(request: Request, id:int):
-    pass
-
-#Admin===============================================================
-
-

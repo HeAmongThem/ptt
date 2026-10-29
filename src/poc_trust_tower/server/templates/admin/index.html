@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+
+{% block header %}
+<h1 class="h3 my-3">Administration</h1>
+{% endblock header %}
+
+{% macro delete_form(action, label) %}
+<form method="post" action="{{ action }}" class="d-inline"
+      onsubmit="return confirm('Supprimer {{ label }} ?');">
+    <button type="submit" class="btn btn-outline-danger btn-sm">Supprimer</button>
+</form>
+{% endmacro %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        {% for key, label in [("categories", "Catégories"), ("campaigns", "Campagnes"), ("users", "Utilisateurs"), ("indicators", "Indicateurs")] %}
+        {% set active = "active" if tab == key else "" %}
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {{ active }}" href="/admin?tab={{ key }}">{{ label }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+
+    {% if tab == "categories" %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted small">{{ categories|length }} catégorie(s)</span>
+        <a href="/admin/categories/new" class="btn btn-primary btn-sm">+ Ajouter</a>
+    </div>
+    <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-light">
+            <tr><th>Id</th><th>Nom</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for c in categories %}
+            <tr>
+                <td>{{ c.id }}</td>
+                <td>{{ c.name }}</td>
+                <td class="text-end">
+                    <a href="/admin/categories/{{ c.id }}" class="btn btn-outline-secondary btn-sm">Modifier</a>
+                    {{ delete_form("/admin/categories/" ~ c.id ~ "/delete", "la catégorie " ~ c.name) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% elif tab == "campaigns" %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted small">{{ campaigns|length }} campagne(s)</span>
+        <a href="/admin/campaigns/new" class="btn btn-primary btn-sm">+ Ajouter</a>
+    </div>
+    <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-light">
+            <tr><th>Id</th><th>Nom</th><th>Début</th><th>Fin</th><th class="text-end">Indicateurs</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for c in campaigns %}
+            <tr>
+                <td>{{ c.id }}</td>
+                <td>{{ c.name }}</td>
+                <td>{{ c.start_date.strftime("%d/%m/%Y") }}</td>
+                <td>{{ c.end_date.strftime("%d/%m/%Y") }}</td>
+                <td class="text-end">{{ c.indicators|length }}</td>
+                <td class="text-end">
+                    <a href="/admin/campaigns/{{ c.id }}" class="btn btn-outline-secondary btn-sm">Modifier</a>
+                    {{ delete_form("/admin/campaigns/" ~ c.id ~ "/delete", "la campagne " ~ c.name) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% elif tab == "users" %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted small">{{ users|length }} utilisateur(s)</span>
+        <a href="/admin/users/new" class="btn btn-primary btn-sm">+ Ajouter</a>
+    </div>
+    <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-light">
+            <tr><th>Id</th><th>Email</th><th>Rôle</th><th>Business unit</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td>{{ u.id }}</td>
+                <td>{{ u.email }}</td>
+                <td><span class="badge bg-secondary">{{ u.role.value }}</span></td>
+                <td>{{ u.business_unit.name }}</td>
+                <td class="text-end">
+                    <a href="/admin/users/{{ u.id }}" class="btn btn-outline-secondary btn-sm">Modifier</a>
+                    {{ delete_form("/admin/users/" ~ u.id ~ "/delete", "l'utilisateur " ~ u.email) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% elif tab == "indicators" %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted small">{{ indicators|length }} indicateur(s)</span>
+        <a href="/admin/indicators/new" class="btn btn-primary btn-sm">+ Ajouter</a>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Id</th><th>Catégorie</th><th>Business unit</th><th>Description</th>
+                <th class="text-end">Valeur</th><th class="text-end">Variation</th>
+                <th>BU</th><th>Resp. BU</th><th>CFO</th><th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in indicators %}
+            <tr>
+                <td><a href="/my-certifications/{{ i.id }}">{{ i.id }}</a></td>
+                <td><span class="badge bg-primary">{{ i.category.name }}</span></td>
+                <td class="text-nowrap">{{ i.business_unit.name }}</td>
+                <td class="text-truncate" style="max-width: 16rem" title="{{ i.description_action_expected }}">{{ i.description_action_expected }}</td>
+                <td class="text-end text-nowrap">{{ i.value }} {{ i.unit }}</td>
+                <td class="text-end text-nowrap {{ 'text-success' if i.variation >= 0 else 'text-danger' }}">{{ "%+.2f"|format(i.variation) }} %</td>
+                <td class="small text-nowrap">{{ i.certification_bu|status_label }}</td>
+                <td class="small text-nowrap">{{ i.certification_bu_head|status_label }}</td>
+                <td class="small text-nowrap">{{ i.certification_cfo|status_label }}</td>
+                <td class="text-end text-nowrap">
+                    <a href="/admin/indicators/{{ i.id }}" class="btn btn-outline-secondary btn-sm">Modifier</a>
+                    {{ delete_form("/admin/indicators/" ~ i.id ~ "/delete", "l'indicateur " ~ i.id) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock content %}
