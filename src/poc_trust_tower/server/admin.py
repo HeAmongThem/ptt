@@ -3,8 +3,11 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import RedirectResponse, Response
 
-from poc_trust_tower.core import importers
+from datetime import datetime
+
+from poc_trust_tower.core import importers, sharepoint
 from poc_trust_tower.core import repository as repo
+from poc_trust_tower.core.config import load_sharepoint_config
 from poc_trust_tower.core.model import ROLE, CertificationStatus
 from poc_trust_tower.core.schemas import (
     BusinessUnitCreateSchema,
@@ -299,8 +302,25 @@ def _import_context(**extra) -> dict:
         "errors": [],
         "created": [],
         "message": None,
+        "sharepoint": None,
         **extra,
     }
+
+
+def _store_on_sharepoint(filename: str, content: bytes) -> dict | None:
+    """Dépose le fichier d'import sur SharePoint ; renvoie un résumé pour l'affichage (None si désactivé)."""
+    config = load_sharepoint_config()
+    if not config.use:
+        return None
+    session = sharepoint.current_session()
+    if session is None:
+        return {"ok": False, "detail": sharepoint.last_error() or "Aucune session SharePoint active (application lancée sans connexion)."}
+    stored_name = f"{datetime.now():%Y%m%d-%H%M%S}_{filename}"
+    try:
+        url = session.upload(stored_name, content)
+    except sharepoint.SharePointError as exc:
+        return {"ok": False, "detail": str(exc)}
+    return {"ok": True, "url": url, "name": stored_name, "folder": config.target_folder}
 
 
 @router.get("/indicators/import")
@@ -329,7 +349,9 @@ async def indicator_import(request: Request, file: Annotated[UploadFile, File()]
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
     return templates.TemplateResponse(
-        request, "admin/indicator_import.html", _import_context(created=created, filename=filename)
+        request,
+        "admin/indicator_import.html",
+        _import_context(created=created, filename=filename, sharepoint=_store_on_sharepoint(filename, content)),
     )
 
 

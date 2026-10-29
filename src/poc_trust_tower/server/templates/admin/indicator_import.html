@@ -19,6 +19,19 @@
     </div>
     {% endif %}
 
+    {% if sharepoint %}
+    {% if sharepoint.ok %}
+    <div class="alert alert-info py-2">
+        Fichier déposé sur SharePoint : <a href="{{ sharepoint.url }}" target="_blank" rel="noopener" class="alert-link">{{ sharepoint.name }}</a>
+        <span class="text-muted small">({{ sharepoint.folder }})</span>
+    </div>
+    {% else %}
+    <div class="alert alert-warning py-2">
+        <strong>Indicateurs importés, mais dépôt SharePoint impossible</strong> — {{ sharepoint.detail }}
+    </div>
+    {% endif %}
+    {% endif %}
+
     {% if message %}
     <div class="alert alert-danger"><strong>Import refusé</strong> — {{ message }}</div>
     {% endif %}
