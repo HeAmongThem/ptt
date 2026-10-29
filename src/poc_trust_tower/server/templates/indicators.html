@@ -33,7 +33,7 @@
                 <option value="">Tous</option>
                 {% for s in statuses %}
                 {% set sel = "selected" if filters.bu == s else "" %}
-                <option value="{{ s }}" {{ sel }}>{{ s }}</option>
+                <option value="{{ s }}" {{ sel }}>{{ s|humanize }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -43,7 +43,7 @@
                 <option value="">Tous</option>
                 {% for s in statuses %}
                 {% set sel = "selected" if filters.bu_head == s else "" %}
-                <option value="{{ s }}" {{ sel }}>{{ s }}</option>
+                <option value="{{ s }}" {{ sel }}>{{ s|humanize }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -53,7 +53,7 @@
                 <option value="">Tous</option>
                 {% for s in statuses %}
                 {% set sel = "selected" if filters.cfo == s else "" %}
-                <option value="{{ s }}" {{ sel }}>{{ s }}</option>
+                <option value="{{ s }}" {{ sel }}>{{ s|humanize }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -63,9 +63,18 @@
         </div>
     </form>
 
+    {% if saved %}
+    <div class="alert alert-success py-2">
+        Certification de l'indicateur <a href="/my-certifications/{{ saved }}" class="alert-link">{{ saved }}</a> enregistrée.
+    </div>
+    {% endif %}
+
     <p class="text-muted small">
         <span id="count-visible">{{ visible_ids|length }}</span> / {{ total }}
         indicateur(s)
+        {% if my_status_field %}
+        &middot; vous pouvez modifier votre niveau de certification directement dans le tableau.
+        {% endif %}
     </p>
 
     <div class="table-responsive">
@@ -75,24 +84,37 @@
         >
             <thead class="table-light">
                 <tr>
+                    {% set level_headers = [("certification_bu", "comment_bu", "BU"), ("certification_bu_head", "comment_bu_head", "BU head"), ("certification_cfo", "comment_cfo", "CFO")] %}
                     <th scope="col">Id</th>
-                    <th scope="col">Catégorie</th>
-                    <th scope="col">Business unit</th>
-                    <th scope="col">Nature</th>
-                    <th scope="col">Description / action attendue</th>
-                    <th scope="col">Comité</th>
-                    <th scope="col" class="text-end">Valeur</th>
-                    <th scope="col" class="text-end">Précédente</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Nature of information</th>
+                    <th scope="col">Description / expected action</th>
+                    <th scope="col">Availability date</th>
+                    <th scope="col">Validation committee</th>
+                    <th scope="col">Unit</th>
+                    <th scope="col" class="text-end">Value</th>
+                    <th scope="col" class="text-end">Previous value</th>
                     <th scope="col" class="text-end">Variation</th>
-                    <th scope="col">Certif. BU</th>
-                    <th scope="col">Certif. Resp. BU</th>
-                    <th scope="col">Certif. CFO</th>
-                    <th scope="col">Disponibilité</th>
-                    <th scope="col">Mis à jour</th>
+                    <th scope="col">Comment / analysis</th>
+                    <th scope="col" class="text-end">Threshold certified without reserves</th>
+                    <th scope="col" class="text-end">Threshold acceptable</th>
+                    <th scope="col" class="text-end">Threshold certified with significant reserves</th>
+                    <th scope="col" class="text-end">Threshold not certified</th>
+                    {% for status_field, comment_field, level in level_headers %}
+                    <th scope="col">Certification {{ level }}{% if status_field == my_status_field %} <span class="badge bg-primary">you</span>{% endif %}</th>
+                    {% endfor %}
+                    <th scope="col">EMR comment</th>
+                    {% for status_field, comment_field, level in level_headers %}
+                    <th scope="col">Comment {{ level }}{% if status_field == my_status_field %} <span class="badge bg-primary">you</span>{% endif %}</th>
+                    {% endfor %}
+                    <th scope="col">Business unit</th>
+                    <th scope="col">Created at</th>
+                    <th scope="col">Updated at</th>
                 </tr>
             </thead>
             <tbody>
                 {% for indicator in indicators %}
+                {% set editable = indicator.id in certifiable_ids %}
                 <tr
                     class="{{ '' if indicator.id in visible_ids else 'd-none' }}"
                     role="link"
@@ -104,46 +126,70 @@
                     data-bu-head="{{ indicator.certification_bu_head }}"
                     data-cfo="{{ indicator.certification_cfo }}"
                 >
-                    <td>
-                        <a href="/my-certifications/{{ indicator.id }}"
-                            >{{ indicator.id }}</a
-                        >
-                    </td>
+                    <td><a href="/my-certifications/{{ indicator.id }}">{{ indicator.id }}</a></td>
                     <td>
                         <a href="/my-certifications/category/{{ indicator.category.id }}"
-                           class="badge bg-primary text-decoration-none"
-                           >{{ indicator.category.name }}</a
-                        >
+                           class="badge bg-primary text-decoration-none">{{ indicator.category.name }}</a>
                     </td>
-                    <td>{{ indicator.business_unit.name }}</td>
                     <td>{{ indicator.nature_of_information }}</td>
                     <td>{{ indicator.description_action_expected }}</td>
+                    <td class="text-nowrap">{{ indicator.availability_date.strftime("%d/%m/%Y") }}</td>
                     <td>{{ indicator.validation_committee }}</td>
-                    <td class="text-end">
-                        {{ indicator.value }} {{ indicator.unit }}
-                    </td>
-                    <td class="text-end">
-                        {{ indicator.value_previous }} {{ indicator.unit }}
-                    </td>
-                    <td
-                        class="text-end {{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}"
-                    >
+                    <td>{{ indicator.unit }}</td>
+                    <td class="text-end">{{ indicator.value }}</td>
+                    <td class="text-end">{{ indicator.value_previous }}</td>
+                    <td class="text-end text-nowrap {{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}">
                         {{ "%+.2f"|format(indicator.variation) }} %
                     </td>
-                    <td>{{ indicator.certification_bu }}</td>
-                    <td>{{ indicator.certification_bu_head }}</td>
-                    <td>{{ indicator.certification_cfo }}</td>
-                    <td>
-                        {{ indicator.availability_date.strftime("%d/%m/%Y") }}
+                    <td>{{ indicator.comment_analysis }}</td>
+                    <td class="text-end">{{ indicator.thresold_certified_without_reserves }}</td>
+                    <td class="text-end">{{ indicator.thresold_acceptable }}</td>
+                    <td class="text-end">{{ indicator.thresold_certified_with_significant_reserves }}</td>
+                    <td class="text-end">{{ indicator.thresold_not_certified }}</td>
+                    {% for status_field, comment_field, level in level_headers %}
+                    {% set current = indicator[status_field] %}
+                    {% if editable and status_field == my_status_field %}
+                    <td class="small text-nowrap">
+                        <form id="certify-{{ indicator.id }}" method="post"
+                              action="/my-certifications/{{ indicator.id }}/certify?return_to={{ return_to|urlencode }}"></form>
+                        <input type="hidden" name="status" form="certify-{{ indicator.id }}" value="{{ current }}">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none js-edit-status"
+                                data-bs-toggle="modal" data-bs-target="#status-modal" data-indicator-id="{{ indicator.id }}"
+                                title="Edit certification {{ level }}">
+                            <span class="js-status-text">{{ current|humanize }}</span>
+                            <span class="ms-1" aria-hidden="true">&#9998;</span>
+                        </button>
                     </td>
-                    <td>{{ indicator.updated_at.strftime("%d/%m/%Y") }}</td>
+                    {% else %}
+                    <td class="small text-nowrap">{{ current|humanize }}</td>
+                    {% endif %}
+                    {% endfor %}
+                    <td>{{ indicator.comment_emr_id }}</td>
+                    {% for status_field, comment_field, level in level_headers %}
+                    {% if editable and status_field == my_status_field %}
+                    <td style="min-width: 12rem">
+                        <input type="hidden" name="comment" form="certify-{{ indicator.id }}" value="{{ indicator[comment_field] }}">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-start text-decoration-none js-edit-comment"
+                                data-bs-toggle="modal" data-bs-target="#comment-modal" data-indicator-id="{{ indicator.id }}"
+                                title="Edit comment {{ level }}">
+                            <span class="js-comment-text {{ 'text-muted fst-italic' if not indicator[comment_field] else '' }}">{{ indicator[comment_field] or "Add a comment…" }}</span>
+                            <span class="ms-1" aria-hidden="true">&#9998;</span>
+                        </button>
+                    </td>
+                    {% else %}
+                    <td>{{ indicator[comment_field] }}</td>
+                    {% endif %}
+                    {% endfor %}
+                    <td class="text-nowrap">{{ indicator.business_unit.name }}</td>
+                    <td class="text-nowrap">{{ indicator.created_at.strftime("%d/%m/%Y") }}</td>
+                    <td class="text-nowrap">{{ indicator.updated_at.strftime("%d/%m/%Y") }}</td>
                 </tr>
                 {% endfor %}
                 <tr
                     id="empty-row"
                     class="{{ '' if not visible_ids else 'd-none' }}"
                 >
-                    <td colspan="14" class="text-center text-muted">
+                    <td colspan="25" class="text-center text-muted">
                         Aucun indicateur ne correspond aux filtres.
                     </td>
                 </tr>
@@ -151,6 +197,55 @@
         </table>
     </div>
 </div>
+
+{% if my_status_field %}
+<div class="modal fade" id="status-modal" tabindex="-1" aria-labelledby="status-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form id="status-modal-form">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="status-modal-title">Certification</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small mb-2">Indicator <strong id="status-modal-indicator"></strong> — current value: <code id="status-modal-current"></code></p>
+                    <label for="status-modal-select" class="form-label small">New status</label>
+                    <select id="status-modal-select" class="form-select">
+                        {% for st in all_statuses %}
+                        <option value="{{ st }}">{{ st|humanize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="comment-modal" tabindex="-1" aria-labelledby="comment-modal-title" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="comment-modal-form">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="comment-modal-title">Comment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="comment-modal-text" class="form-label small">Your comment for indicator <strong id="comment-modal-indicator"></strong></label>
+                    <textarea id="comment-modal-text" class="form-control" rows="5" autofocus></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <script>
     (() => {
@@ -201,10 +296,64 @@
 
         form.addEventListener("change", applyFilters);
 
+        // Modales d'édition (statut, commentaire) : pré-remplissage depuis le champ
+        // caché de la ligne, puis report de la valeur et soumission du formulaire de la ligne.
+        const humanize = (value) => String(value).replaceAll("_", " ");
+        const hiddenInput = (name, id) =>
+            document.querySelector(`input[name="${name}"][form="certify-${id}"]`);
+
+        const bindModal = ({ modalId, fieldName, inputId, labelId, textClass, onShow, onApply }) => {
+            const modalEl = document.getElementById(modalId);
+            if (!modalEl) return;
+            const input = document.getElementById(inputId);
+            let currentId = null;
+
+            modalEl.addEventListener("show.bs.modal", (event) => {
+                currentId = event.relatedTarget.dataset.indicatorId;
+                document.getElementById(labelId).textContent = currentId;
+                input.value = hiddenInput(fieldName, currentId).value;
+                if (onShow) onShow(input.value);
+            });
+            modalEl.addEventListener("shown.bs.modal", () => input.focus());
+
+            modalEl.querySelector("form").addEventListener("submit", (event) => {
+                event.preventDefault();
+                const hidden = hiddenInput(fieldName, currentId);
+                hidden.value = input.value.trim();
+                const text = hidden.closest("td").querySelector(textClass);
+                if (onApply) onApply(text, hidden.value);
+                document.getElementById(`certify-${currentId}`).requestSubmit();
+            });
+        };
+
+        bindModal({
+            modalId: "status-modal",
+            fieldName: "status",
+            inputId: "status-modal-select",
+            labelId: "status-modal-indicator",
+            textClass: ".js-status-text",
+            onShow: (value) => { document.getElementById("status-modal-current").textContent = humanize(value); },
+            onApply: (text, value) => { text.textContent = humanize(value); },
+        });
+
+        bindModal({
+            modalId: "comment-modal",
+            fieldName: "comment",
+            inputId: "comment-modal-text",
+            labelId: "comment-modal-indicator",
+            textClass: ".js-comment-text",
+            onApply: (text, value) => {
+                text.textContent = value || "Add a comment…";
+                text.classList.toggle("text-muted", !value);
+                text.classList.toggle("fst-italic", !value);
+            },
+        });
+
         // Double-clic sur une ligne -> page de détail de l'indicateur.
         document
             .querySelector("#indicators-table tbody")
             .addEventListener("dblclick", (event) => {
+                if (event.target.closest("select, input, textarea, button, a, form")) return;
                 const row = event.target.closest("tr[data-href]");
                 if (row) window.location.href = row.dataset.href;
             });

@@ -46,11 +46,11 @@
                 <tr><th scope="row">Non certifié</th><td>{{ indicator.thresold_not_certified }}</td></tr>
 
                 <tr class="table-secondary"><th colspan="2">Certification</th></tr>
-                <tr><th scope="row">BU</th><td>{{ indicator.certification_bu|status_label }}</td></tr>
+                <tr><th scope="row">BU</th><td>{{ indicator.certification_bu|humanize }}</td></tr>
                 <tr><th scope="row">Commentaire BU</th><td>{{ indicator.comment_bu }}</td></tr>
-                <tr><th scope="row">Responsable BU</th><td>{{ indicator.certification_bu_head|status_label }}</td></tr>
+                <tr><th scope="row">Responsable BU</th><td>{{ indicator.certification_bu_head|humanize }}</td></tr>
                 <tr><th scope="row">Commentaire responsable BU</th><td>{{ indicator.comment_bu_head }}</td></tr>
-                <tr><th scope="row">CFO</th><td>{{ indicator.certification_cfo|status_label }}</td></tr>
+                <tr><th scope="row">CFO</th><td>{{ indicator.certification_cfo|humanize }}</td></tr>
                 <tr><th scope="row">Commentaire CFO</th><td>{{ indicator.comment_cfo }}</td></tr>
 
                 <tr class="table-secondary"><th colspan="2">Historique</th></tr>
@@ -75,7 +75,7 @@
                     <select id="f-status" name="status" class="form-select form-select-sm">
                         {% for s in statuses %}
                         {% set sel = "selected" if s == my_status else "" %}
-                        <option value="{{ s }}" {{ sel }}>{{ s|status_label }}</option>
+                        <option value="{{ s }}" {{ sel }}>{{ s|humanize }}</option>
                         {% endfor %}
                     </select>
                 </div>

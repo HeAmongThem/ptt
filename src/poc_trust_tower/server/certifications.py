@@ -1,4 +1,5 @@
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
@@ -27,6 +28,7 @@ def my_certifications(
     bu: Annotated[str, Query()] = "",
     bu_head: Annotated[str, Query()] = "",
     cfo: Annotated[str, Query()] = "",
+    saved: Annotated[str, Query()] = "",
 ):
     filters = {
         "category": category,
@@ -38,6 +40,10 @@ def my_certifications(
     scope = repo.visible_indicators(user)
     indicators = repo.filter_indicators(scope, **filters)  # type: ignore[arg-type]
     visible_ids = {i.id for i in indicators}
+    my_fields = repo.CERTIFICATION_FIELDS.get(user.role)
+    # URL de retour après une certification en ligne (sans le marqueur `saved` courant).
+    query = urlencode([(k, v) for k, v in request.query_params.multi_items() if k != "saved"])
+    return_to = request.url.path + (f"?{query}" if query else "")
     return templates.TemplateResponse(
         request,
         "indicators.html",
@@ -49,6 +55,13 @@ def my_certifications(
             "filters": filters,
             "categories": repo.distinct_categories(scope),
             "statuses": repo.distinct_statuses(scope),
+            # Édition en ligne du niveau de certification de l'utilisateur.
+            "my_status_field": my_fields[0] if my_fields else None,
+            "my_comment_field": my_fields[1] if my_fields else None,
+            "certifiable_ids": {i.id for i in scope if repo.can_certify(user, i)},
+            "all_statuses": [st.name for st in CertificationStatus],
+            "return_to": return_to,
+            "saved": saved,
         },
     )
 
@@ -95,11 +108,24 @@ def my_certifications_by_id(request: Request, indicator_id: str, user: CurrentUs
     )
 
 
+def _is_internal_path(target: str) -> bool:
+    return target.startswith("/") and not target.startswith("//")
+
+
 @router.post("/{indicator_id}/certify")
-def my_certifications_certify(indicator_id: str, user: CurrentUserDep, payload: Annotated[CertificationSchema, Form()]):
+def my_certifications_certify(
+    indicator_id: str,
+    user: CurrentUserDep,
+    payload: Annotated[CertificationSchema, Form()],
+    return_to: Annotated[str, Query()] = "",
+):
     _get_visible_indicator(indicator_id, user)
     try:
         repo.certify_indicator(indicator_id, user, payload)
     except repo.ForbiddenError as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    if return_to and _is_internal_path(return_to):
+        # Retour sur la liste (filtres conservés) en signalant la ligne enregistrée.
+        separator = "&" if "?" in return_to else "?"
+        return RedirectResponse(f"{return_to}{separator}saved={indicator_id}", status_code=status.HTTP_303_SEE_OTHER)
     return RedirectResponse(f"/my-certifications/{indicator_id}?saved=1", status_code=status.HTTP_303_SEE_OTHER)

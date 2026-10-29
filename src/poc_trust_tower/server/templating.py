@@ -4,14 +4,6 @@ from fastapi.templating import Jinja2Templates
 
 from poc_trust_tower.core.repository import variation_kind
 
-STATUS_LABELS = {
-    "pending": "En attente",
-    "certified_without_reserves": "Certifié",
-    "acceptable": "Acceptable",
-    "certified_with_significant_reserves": "Réserves signif.",
-    "not_certified": "Non certifié",
-}
-
 def _current_user(request) -> dict:
     # Import local : auth.py importe `templates` depuis ce module.
     from poc_trust_tower.server.auth import get_current_user
@@ -24,4 +16,5 @@ templates = Jinja2Templates(
     context_processors=[_current_user],
 )
 templates.env.globals["variation_kind"] = variation_kind
-templates.env.filters["status_label"] = lambda value: STATUS_LABELS.get(value, value)
+# Affichage des valeurs du modèle : "certified_without_reserves" -> "certified without reserves"
+templates.env.filters["humanize"] = lambda value: str(value).replace("_", " ")

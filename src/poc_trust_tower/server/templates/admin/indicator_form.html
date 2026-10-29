@@ -36,7 +36,7 @@
 
         <h2 class="h6 text-muted border-bottom pb-1 mb-0 mt-4">Certification</h2>
         {% set status_options = [] %}
-        {% for s in statuses %}{% set _ = status_options.append((s, s|status_label)) %}{% endfor %}
+        {% for s in statuses %}{% set _ = status_options.append((s, s|humanize)) %}{% endfor %}
         {{ f.select("certification_bu", "Statut BU", status_options, item.certification_bu if item else "pending", col="col-md-4") }}
         {{ f.select("certification_bu_head", "Statut Resp. BU", status_options, item.certification_bu_head if item else "pending", col="col-md-4") }}
         {{ f.select("certification_cfo", "Statut CFO", status_options, item.certification_cfo if item else "pending", col="col-md-4") }}
