@@ -99,7 +99,10 @@
     {% elif tab == "indicators" %}
     <div class="d-flex justify-content-between align-items-center mb-2">
         <span class="text-muted small">{{ indicators|length }} indicateur(s)</span>
-        <a href="/admin/indicators/new" class="btn btn-primary btn-sm">+ Ajouter</a>
+        <div class="d-flex gap-2">
+            <a href="/admin/indicators/import" class="btn btn-outline-primary btn-sm">Importer (CSV / JSON / Excel)</a>
+            <a href="/admin/indicators/new" class="btn btn-primary btn-sm">+ Ajouter</a>
+        </div>
     </div>
     <div class="table-responsive">
     <table class="table table-sm table-striped table-hover align-middle">

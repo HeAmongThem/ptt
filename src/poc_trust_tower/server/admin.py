@@ -1,8 +1,9 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Form, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import RedirectResponse, Response
 
+from poc_trust_tower.core import importers
 from poc_trust_tower.core import repository as repo
 from poc_trust_tower.core.model import ROLE, CertificationStatus
 from poc_trust_tower.core.schemas import (
@@ -177,6 +178,62 @@ def indicator_new(request: Request):
 def indicator_create(payload: Annotated[IndicatorCreateSchema, Form()]):
     _run(repo.create_indicator, payload)
     return _redirect("indicators")
+
+
+# --- Import (déclaré avant /indicators/{indicator_id}) ----------------
+def _import_context(**extra) -> dict:
+    return {
+        "title": "Importer des indicateurs",
+        "columns": importers.COLUMNS,
+        "required_columns": importers.REQUIRED_COLUMNS,
+        "categories": repo.repoCategories,
+        "business_units": repo.repoBusinessUnits,
+        "statuses": [s.name for s in CertificationStatus],
+        "errors": [],
+        "created": [],
+        "message": None,
+        **extra,
+    }
+
+
+@router.get("/indicators/import")
+def indicator_import_form(request: Request):
+    return templates.TemplateResponse(request, "admin/indicator_import.html", _import_context())
+
+
+@router.post("/indicators/import")
+async def indicator_import(request: Request, file: Annotated[UploadFile, File()]):
+    content = await file.read()
+    filename = file.filename or ""
+    try:
+        created = importers.import_indicators(filename, content)
+    except importers.ImportValidationError as exc:
+        return templates.TemplateResponse(
+            request,
+            "admin/indicator_import.html",
+            _import_context(errors=exc.errors, filename=filename),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    except (importers.UnsupportedFormatError, ValueError) as exc:
+        return templates.TemplateResponse(
+            request,
+            "admin/indicator_import.html",
+            _import_context(message=str(exc), filename=filename),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    return templates.TemplateResponse(
+        request, "admin/indicator_import.html", _import_context(created=created, filename=filename)
+    )
+
+
+@router.get("/indicators/import/template.{ext}")
+def indicator_import_template(ext: Literal["csv", "json", "xlsx"]):
+    build, media_type = importers.TEMPLATES[ext]
+    return Response(
+        content=build(),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="indicators-template.{ext}"'},
+    )
 
 
 @router.get("/indicators/{indicator_id}")

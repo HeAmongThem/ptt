@@ -114,3 +114,46 @@ def test_indicator_and_campaign_crud(client: TestClient) -> None:
     assert client.post(f"/admin/campaigns/{campaign_id}/delete").status_code == 303
     assert client.get(f"/admin/campaigns/{campaign_id}").status_code == 404
 
+
+# Import ================================================================
+def test_import_page_and_templates(client: TestClient) -> None:
+    assert client.get("/admin/indicators/import").status_code == 200
+    for ext, expected_type in [("csv", "text/csv"), ("json", "application/json"), ("xlsx", "spreadsheetml")]:
+        response = client.get(f"/admin/indicators/import/template.{ext}")
+        assert response.status_code == 200
+        assert expected_type in response.headers["content-type"]
+        assert f'filename="indicators-template.{ext}"' in response.headers["content-disposition"]
+
+
+@pytest.mark.parametrize("ext", ["csv", "json", "xlsx"])
+def test_import_template_roundtrip(client: TestClient, ext: str) -> None:
+    content = client.get(f"/admin/indicators/import/template.{ext}").content
+    before = len(repo.repoIndicators)
+    response = client.post("/admin/indicators/import", files={"file": (f"indicateurs.{ext}", content)})
+    assert response.status_code == 200
+    assert "1 indicateur(s) importé(s)" in response.text
+    assert len(repo.repoIndicators) == before + 1
+    created = repo.repoIndicators[-1]
+    assert created.category.id == "FIN" and created.variation == 9.55
+    repo.delete_indicator(created.id)
+
+
+def test_import_invalid_rows_is_all_or_nothing(client: TestClient) -> None:
+    header = "category_id;business_unit_id;nature_of_information;description_action_expected;availability_date;validation_committee;unit;value;value_previous;thresold_certified_without_reserves;thresold_acceptable;thresold_certified_with_significant_reserves;thresold_not_certified"
+    rows = [
+        "FIN;RET;Q;Ligne valide;2026-12-01;COMEX;%;50;40;90;75;60;40",
+        "XXX;RET;Q;Catégorie inconnue;2026-12-01;COMEX;%;50;40;90;75;60;40",
+    ]
+    content = ("\n".join([header, *rows]) + "\n").encode()
+    before = len(repo.repoIndicators)
+    response = client.post("/admin/indicators/import", files={"file": ("bad.csv", content)})
+    assert response.status_code == 422
+    assert "catégorie inconnue : XXX" in response.text
+    assert "<td>3</td>" in response.text  # numéro de ligne
+    assert len(repo.repoIndicators) == before
+
+
+def test_import_unsupported_format(client: TestClient) -> None:
+    response = client.post("/admin/indicators/import", files={"file": ("notes.txt", b"hello")})
+    assert response.status_code == 422
+    assert "non supporté" in response.text
