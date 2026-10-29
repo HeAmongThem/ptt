@@ -123,15 +123,19 @@ def test_indicator_and_campaign_crud(client: TestClient) -> None:
     assert repo.get_indicator(indicator_id).variation == -50.0
     assert client.post(f"/admin/indicators/{indicator_id}", data={**INDICATOR_FORM, "thresold_acceptable": "95"}).status_code == 422
 
-    campaign = {"name": "T1 2027", "start_date": "2027-01-01", "end_date": "2027-03-31", "indicator_ids": [indicator_id, 1]}
+    campaign = {"name": "T1 2027", "start_date": "2027-01-01", "end_date": "2027-03-31", "indicator_ids": [indicator_id, 1], "actif": "true"}
     assert client.post("/admin/campaigns/new", data=campaign).status_code == 303
     campaign_id = repo.repoCampaigns[-1].id
-    assert [i.id for i in repo.get_campaign(campaign_id).indicators] == [indicator_id, 1]
+    assert repo.get_campaign(campaign_id).actif is True
+    # Case décochée -> non envoyée -> inactif
+    assert client.post(f"/admin/campaigns/{campaign_id}", data={k: v for k, v in campaign.items() if k != "actif"}).status_code == 303
+    assert repo.get_campaign(campaign_id).actif is False
+    assert repo.campaign_indicator_ids(campaign_id) == [indicator_id, 1]
     assert client.post("/admin/campaigns/new", data={**campaign, "start_date": "2027-12-31"}).status_code == 422
 
     # Supprimer un indicateur le retire des campagnes qui le référencent.
     assert client.post(f"/admin/indicators/{indicator_id}/delete").status_code == 303
-    assert [i.id for i in repo.get_campaign(campaign_id).indicators] == [1]
+    assert repo.campaign_indicator_ids(campaign_id) == [1]
 
     assert client.post(f"/admin/campaigns/{campaign_id}/delete").status_code == 303
     assert client.get(f"/admin/campaigns/{campaign_id}").status_code == 404
@@ -182,30 +186,44 @@ def test_import_unsupported_format(client: TestClient) -> None:
 
 
 # Campaign indicators ===================================================
-def test_campaign_indicators_tab_lists_links(client: TestClient) -> None:
-    html = client.get("/admin", params={"tab": "campaign-indicators"}).text
+def test_campaign_indicators_tab_shows_checklist(client: TestClient) -> None:
+    campaign = repo.get_campaign(2)
+    html = client.get("/admin", params={"tab": "campaign-indicators", "campaign": campaign.id}).text
+    assert f'<option value="{campaign.id}" selected>' in html
+    assert html.count('name="indicator_ids"') == len(repo.repoIndicators)
+    assert html.count('name="indicator_ids" value=') == len(repo.repoIndicators)
+    checked = [int(x) for x in __import__("re").findall(r'name="indicator_ids" value="(\d+)"\s+id="ci-\d+" checked', html)]
+    assert sorted(checked) == sorted(repo.campaign_indicator_ids(campaign.id))
     assert f"{len(repo.repoCampaignIndicators)} association(s)" in html
-    assert 'name="campain_id"' in html and 'name="indicateur_id"' in html
 
 
-def test_campaign_indicator_add_and_remove(client: TestClient) -> None:
+def test_campaign_indicators_tab_defaults_to_first_campaign(client: TestClient) -> None:
+    html = client.get("/admin", params={"tab": "campaign-indicators"}).text
+    assert f'<option value="{repo.repoCampaigns[0].id}" selected>' in html
+
+
+def test_campaign_indicators_bulk_save(client: TestClient) -> None:
     campaign = repo.get_campaign(1)
-    indicator = next(i for i in repo.repoIndicators if i not in campaign.indicators)
-    before = len(repo.repoCampaignIndicators)
+    original = repo.campaign_indicator_ids(campaign.id)
+    try:
+        new_ids = [1, 2, 3, 2]  # doublon volontaire
+        response = client.post(f"/admin/campaign-indicators/{campaign.id}", data={"indicator_ids": new_ids})
+        assert response.status_code == 303
+        assert response.headers["location"] == f"/admin?tab=campaign-indicators&campaign={campaign.id}&saved=1"
+        assert repo.campaign_indicator_ids(campaign.id) == [1, 2, 3]
+        assert {l.indicateur_id for l in repo.repoCampaignIndicators if l.campain_id == campaign.id} == {1, 2, 3}
 
-    response = client.post("/admin/campaign-indicators/new", data={"campain_id": campaign.id, "indicateur_id": indicator.id})
-    assert response.status_code == 303 and response.headers["location"] == "/admin?tab=campaign-indicators"
-    assert len(repo.repoCampaignIndicators) == before + 1
-    assert indicator in campaign.indicators  # Campaign.indicators reste synchronisé
+        # Aucune case cochée -> campagne vidée
+        assert client.post(f"/admin/campaign-indicators/{campaign.id}", data={}).status_code == 303
+        assert repo.campaign_indicator_ids(campaign.id) == []
+        assert not any(l.campain_id == campaign.id for l in repo.repoCampaignIndicators)
 
-    assert client.post("/admin/campaign-indicators/new", data={"campain_id": campaign.id, "indicateur_id": indicator.id}).status_code == 409
-    assert client.post("/admin/campaign-indicators/new", data={"campain_id": 999, "indicateur_id": indicator.id}).status_code == 404
-    assert client.post("/admin/campaign-indicators/new", data={"campain_id": "abc", "indicateur_id": indicator.id}).status_code == 422
-
-    assert client.post(f"/admin/campaign-indicators/{campaign.id}/{indicator.id}/delete").status_code == 303
-    assert len(repo.repoCampaignIndicators) == before
-    assert indicator not in campaign.indicators
-    assert client.post(f"/admin/campaign-indicators/{campaign.id}/{indicator.id}/delete").status_code == 404
+        assert client.post(f"/admin/campaign-indicators/{campaign.id}", data={"indicator_ids": [999]}).status_code == 404
+        assert client.post("/admin/campaign-indicators/999", data={"indicator_ids": [1]}).status_code == 404
+        assert client.post(f"/admin/campaign-indicators/{campaign.id}", data={"indicator_ids": ["abc"]}).status_code == 422
+    finally:
+        client.post(f"/admin/campaign-indicators/{campaign.id}", data={"indicator_ids": original})
+        assert repo.campaign_indicator_ids(campaign.id) == original
 
 
 def test_campaign_links_follow_campaign_and_indicator_lifecycle(client: TestClient) -> None:
@@ -222,3 +240,15 @@ def test_campaign_links_follow_campaign_and_indicator_lifecycle(client: TestClie
     assert links() == {(campaign_id, 1)}
     assert client.post(f"/admin/campaigns/{campaign_id}/delete").status_code == 303
     assert links() == set()
+
+
+def test_campaign_form_uses_checkbox_picker(client: TestClient) -> None:
+    html = client.get("/admin/campaigns/new").text
+    assert html.count('name="indicator_ids"') == len(repo.repoIndicators)
+    assert 'id="ci-search"' in html and 'id="f-actif"' in html
+    assert "<select" not in html.split('id="ci-table"')[0].split("<form")[1]  # plus de listbox multi-sélection
+
+    campaign = repo.get_campaign(2)
+    html = client.get(f"/admin/campaigns/{campaign.id}").text
+    checked = [int(x) for x in __import__("re").findall(r'name="indicator_ids" value="(\d+)"\s+id="ci-\d+" checked', html)]
+    assert sorted(checked) == sorted(repo.campaign_indicator_ids(campaign.id))

@@ -69,5 +69,6 @@ async def index(request: Request):
             "title": "Accueil",
             "home_message": repo.get_home_message(),
             "campaigns": repo.active_campaigns(),
+            "campaign_counts": repo.campaign_indicator_counts(),
         },
     )

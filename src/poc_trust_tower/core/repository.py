@@ -16,6 +16,7 @@ from poc_trust_tower.core.schemas import (
     BusinessUnitCreateSchema,
     CampaignCreateSchema,
     CampaignIndicatorCreateSchema,
+    CampaignIndicatorsSchema,
     CategoryCreateSchema,
     CertificationSchema,
     IndicatorCreateSchema,
@@ -117,7 +118,7 @@ def _build_campaigns() -> list[Campaign]:
                 name=f"Campagne T{quarter + 1} 2026",
                 start_date=start,
                 end_date=end,
-                indicators=[i for i in repoIndicators if i.id % 4 == quarter],
+                actif=start <= _NOW <= end,
             )
         )
     return campaigns
@@ -125,10 +126,30 @@ def _build_campaigns() -> list[Campaign]:
 
 repoCampaigns: list[Campaign] = _build_campaigns()
 
-# Campaign indicators (table d'association) ============================
+# Campaign indicators (table d'association, seule source des liens) =====
 repoCampaignIndicators: list[CampaignIndicator] = [
-    CampaignIndicator(campain_id=c.id, indicateur_id=i.id) for c in repoCampaigns for i in c.indicators
+    CampaignIndicator(campain_id=c.id, indicateur_id=i.id)
+    for c in repoCampaigns
+    for i in repoIndicators
+    if i.id % 4 == c.id - 1
 ]
+
+
+def campaign_indicator_ids(campaign_id: int) -> list[int]:
+    return [l.indicateur_id for l in repoCampaignIndicators if l.campain_id == campaign_id]
+
+
+def campaign_indicators(campaign: Campaign | int) -> list[Indicator]:
+    campaign_id = campaign if isinstance(campaign, int) else campaign.id
+    by_id = {i.id: i for i in repoIndicators}
+    return [by_id[i] for i in campaign_indicator_ids(campaign_id) if i in by_id]
+
+
+def campaign_indicator_counts() -> dict[int, int]:
+    counts: dict[int, int] = {c.id: 0 for c in repoCampaigns}
+    for link in repoCampaignIndicators:
+        counts[link.campain_id] = counts.get(link.campain_id, 0) + 1
+    return counts
 
 # Queries =============================================================
 def get_category(category_id: int) -> Category | None:
@@ -344,18 +365,16 @@ def update_indicator(indicator_id: int, payload: IndicatorCreateSchema) -> Indic
 
 def delete_indicator(indicator_id: int) -> None:
     indicator = get_indicator(indicator_id)
-    for campaign in repoCampaigns:
-        if indicator in campaign.indicators:
-            campaign.indicators.remove(indicator)
     repoCampaignIndicators[:] = [l for l in repoCampaignIndicators if l.indicateur_id != indicator.id]
     repoIndicators.remove(indicator)
 
 
 # --- Campaigns --------------------------------------------------------
-def _sync_campaign_links(campaign: Campaign) -> None:
-    """Aligne repoCampaignIndicators sur campaign.indicators (source : la campagne)."""
-    repoCampaignIndicators[:] = [l for l in repoCampaignIndicators if l.campain_id != campaign.id] + [
-        CampaignIndicator(campain_id=campaign.id, indicateur_id=i.id) for i in campaign.indicators
+def _set_campaign_links(campaign_id: int, indicator_ids: list[int]) -> None:
+    """Remplace les liens d'une campagne (doublons ignorés, ordre conservé, 404 si indicateur inconnu)."""
+    indicators = [get_indicator(i) for i in dict.fromkeys(indicator_ids)]
+    repoCampaignIndicators[:] = [l for l in repoCampaignIndicators if l.campain_id != campaign_id] + [
+        CampaignIndicator(campain_id=campaign_id, indicateur_id=i.id) for i in indicators
     ]
 
 
@@ -363,14 +382,20 @@ def _apply_campaign_payload(campaign: Campaign, payload: CampaignCreateSchema) -
     campaign.name = payload.name
     campaign.start_date = payload.start_date
     campaign.end_date = payload.end_date
-    campaign.indicators = [get_indicator(i) for i in dict.fromkeys(payload.indicator_ids)]
-    _sync_campaign_links(campaign)
+    campaign.actif = payload.actif
+    _set_campaign_links(campaign.id, payload.indicator_ids)
 
 
 def create_campaign(payload: CampaignCreateSchema) -> Campaign:
-    campaign = Campaign(id=_next_id(repoCampaigns), name="", start_date=payload.start_date, end_date=payload.end_date, indicators=[])
-    _apply_campaign_payload(campaign, payload)
+    campaign = Campaign(
+        id=_next_id(repoCampaigns),
+        name=payload.name,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+        actif=payload.actif,
+    )
     repoCampaigns.append(campaign)
+    _set_campaign_links(campaign.id, payload.indicator_ids)
     return campaign
 
 
@@ -406,8 +431,14 @@ def add_campaign_indicator(payload: CampaignIndicatorCreateSchema) -> CampaignIn
         raise ConflictError(f"indicator {indicator.id} is already in campaign {campaign.id}")
     link = CampaignIndicator(campain_id=campaign.id, indicateur_id=indicator.id)
     repoCampaignIndicators.append(link)
-    campaign.indicators.append(indicator)
     return link
+
+
+def set_campaign_indicators(campaign_id: int, payload: CampaignIndicatorsSchema) -> Campaign:
+    """Remplace l'ensemble des indicateurs d'une campagne (doublons ignorés, ordre conservé)."""
+    campaign = get_campaign(campaign_id)
+    _set_campaign_links(campaign.id, payload.indicator_ids)
+    return campaign
 
 
 def remove_campaign_indicator(campaign_id: int, indicator_id: int) -> None:
@@ -416,7 +447,6 @@ def remove_campaign_indicator(campaign_id: int, indicator_id: int) -> None:
     if link is None:
         raise NotFoundError(f"indicator {indicator_id} is not in campaign {campaign_id}")
     repoCampaignIndicators.remove(link)
-    campaign.indicators[:] = [i for i in campaign.indicators if i.id != indicator_id]
 
 
 # Certification ========================================================
@@ -483,10 +513,6 @@ def update_settings(payload: SettingsSchema) -> None:
 
 
 # Campagnes actives =====================================================
-def active_campaigns(at: datetime | None = None) -> list[Campaign]:
-    """Campagnes dont la période couvre la date donnée (aujourd'hui par défaut)."""
-    now = at or datetime.now()
-    return sorted(
-        (c for c in repoCampaigns if c.start_date <= now <= c.end_date),
-        key=lambda c: c.end_date,
-    )
+def active_campaigns() -> list[Campaign]:
+    """Campagnes marquées actives (drapeau `actif`), triées par date de fin."""
+    return sorted((c for c in repoCampaigns if c.actif), key=lambda c: c.end_date)

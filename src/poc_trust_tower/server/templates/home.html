@@ -31,7 +31,7 @@
                     <td>{{ c.name }}</td>
                     <td class="text-center text-nowrap">{{ c.start_date.strftime("%d/%m/%Y") }}</td>
                     <td class="text-center text-nowrap">{{ c.end_date.strftime("%d/%m/%Y") }}</td>
-                    <td class="text-center">{{ c.indicators|length }}</td>
+                    <td class="text-center">{{ campaign_counts.get(c.id, 0) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

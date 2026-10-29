@@ -11,13 +11,17 @@
         {{ f.input("name", "Nom", item.name if item else "", col="col-md-12") }}
         {{ f.input("start_date", "Date de début", item.start_date.strftime("%Y-%m-%d") if item else "", type="date") }}
         {{ f.input("end_date", "Date de fin", item.end_date.strftime("%Y-%m-%d") if item else "", type="date") }}
-        {% set indicator_options = [] %}
-        {% for i in indicators %}
-        {% set _ = indicator_options.append((i.id, i.id ~ " — " ~ i.category.name ~ " — " ~ i.description_action_expected)) %}
-        {% endfor %}
-        {% set selected_ids = item.indicators|map(attribute="id")|list if item else [] %}
-        {{ f.select("indicator_ids", "Indicateurs", indicator_options, selected_ids, multiple=True, size=12,
-                    help="Maintenez Cmd/Ctrl pour sélectionner plusieurs indicateurs.", col="col-md-12") }}
+        {% set actif_checked = "checked" if item and item.actif else "" %}
+        <div class="col-md-12">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="f-actif" name="actif" value="true" {{ actif_checked }}>
+                <label for="f-actif" class="form-check-label">Campagne active (affichée sur la page d'accueil)</label>
+            </div>
+        </div>
+        <div class="col-md-12">
+            <label class="form-label small mb-1">Indicateurs de la campagne</label>
+            {% include "admin/_indicator_picker.html" %}
+        </div>
         {{ f.actions("campaigns", item) }}
     </form>
 </div>

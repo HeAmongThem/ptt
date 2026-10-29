@@ -44,7 +44,7 @@ class Campaign:
    name: str
    start_date: datetime
    end_date: datetime
-   indicators: list[Indicator]
+   actif: bool
 
 @dataclass
 class Indicator:

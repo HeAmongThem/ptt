@@ -1,0 +1,63 @@
+{# Sélecteur d'indicateurs par cases à cocher (champ `indicator_ids`).
+   Variables attendues : indicators, selected_ids ; optionnelles : other_campaigns (dict id -> noms), picker_height. #}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+    <input type="search" id="ci-search" class="form-control form-control-sm" style="max-width: 20rem"
+           placeholder="Rechercher (id, catégorie, BU, description…)" autocomplete="off">
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="ci-check-visible">Tout cocher (visibles)</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="ci-uncheck-visible">Tout décocher (visibles)</button>
+    <span class="small text-muted ms-auto"><strong id="ci-count">{{ selected_ids|length }}</strong> / {{ indicators|length }} sélectionné(s)</span>
+</div>
+<div class="table-card" style="max-height: {{ picker_height|default('50vh') }}; overflow: auto">
+    <table class="table table-modern mb-0" id="ci-table">
+        <thead>
+            <tr>
+                <th scope="col" style="width: 3rem"></th>
+                <th scope="col">Id</th>
+                <th scope="col">Catégorie</th>
+                <th scope="col">Business unit</th>
+                <th scope="col">Description</th>
+                {% if other_campaigns is defined %}<th scope="col">Autres campagnes</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in indicators %}
+            {% set checked = "checked" if i.id in selected_ids else "" %}
+            <tr data-search="{{ i.id }} {{ i.category.name }} {{ i.business_unit.name }} {{ i.description_action_expected }}">
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input ci-check" name="indicator_ids" value="{{ i.id }}"
+                           id="ci-{{ i.id }}" {{ checked }}>
+                </td>
+                <td><label for="ci-{{ i.id }}" class="mb-0">{{ i.id }}</label></td>
+                <td><span class="badge bg-primary">{{ i.category.name }}</span></td>
+                <td class="text-nowrap">{{ i.business_unit.name }}</td>
+                <td><label for="ci-{{ i.id }}" class="mb-0">{{ i.description_action_expected }}</label></td>
+                {% if other_campaigns is defined %}<td class="small text-muted">{{ other_campaigns[i.id]|join(", ") }}</td>{% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    (() => {
+        const rows = Array.from(document.querySelectorAll("#ci-table tbody tr"));
+        const checks = () => rows.map((r) => r.querySelector(".ci-check"));
+        const visible = () => rows.filter((r) => !r.classList.contains("d-none"));
+        const counter = document.getElementById("ci-count");
+        const updateCount = () => { counter.textContent = checks().filter((c) => c.checked).length; };
+
+        document.getElementById("ci-search").addEventListener("input", (e) => {
+            const q = e.target.value.trim().toLowerCase();
+            for (const r of rows) r.classList.toggle("d-none", q !== "" && !r.dataset.search.toLowerCase().includes(q));
+        });
+        // Entrée dans la recherche ne doit pas soumettre le formulaire parent.
+        document.getElementById("ci-search").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+        document.getElementById("ci-check-visible").addEventListener("click", () => {
+            for (const r of visible()) r.querySelector(".ci-check").checked = true; updateCount();
+        });
+        document.getElementById("ci-uncheck-visible").addEventListener("click", () => {
+            for (const r of visible()) r.querySelector(".ci-check").checked = false; updateCount();
+        });
+        document.getElementById("ci-table").addEventListener("change", updateCount);
+    })();
+</script>

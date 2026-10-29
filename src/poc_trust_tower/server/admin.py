@@ -9,7 +9,7 @@ from poc_trust_tower.core.model import ROLE, CertificationStatus
 from poc_trust_tower.core.schemas import (
     BusinessUnitCreateSchema,
     CampaignCreateSchema,
-    CampaignIndicatorCreateSchema,
+    CampaignIndicatorsSchema,
     CategoryCreateSchema,
     IndicatorCreateSchema,
     SettingsSchema,
@@ -55,7 +55,11 @@ def _form_context(**extra) -> dict:
 
 
 @router.get("")
-def admin_index(request: Request, tab: Tab = "categories"):
+def admin_index(request: Request, tab: Tab = "categories", campaign: int | None = None):
+    # Onglet Campagnes <-> Indicateurs : campagne sélectionnée (la première par défaut).
+    selected_campaign = None
+    if tab == "campaign-indicators" and repo.repoCampaigns:
+        selected_campaign = next((c for c in repo.repoCampaigns if c.id == campaign), repo.repoCampaigns[0])
     return templates.TemplateResponse(
         request,
         "admin/index.html",
@@ -69,22 +73,31 @@ def admin_index(request: Request, tab: Tab = "categories"):
             "indicators": repo.repoIndicators,
             "home_message": repo.get_home_message(),
             "active_campaigns": repo.active_campaigns(),
-            "campaign_indicators": repo.campaign_indicator_links(),
+            "selected_campaign": selected_campaign,
+            "selected_ids": set(repo.campaign_indicator_ids(selected_campaign.id)) if selected_campaign else set(),
+            "campaign_counts": repo.campaign_indicator_counts(),
+            # indicateur -> noms des autres campagnes qui le contiennent
+            "other_campaigns": {
+                i.id: [
+                    c.name
+                    for c in repo.repoCampaigns
+                    if selected_campaign and c.id != selected_campaign.id and i.id in repo.campaign_indicator_ids(c.id)
+                ]
+                for i in repo.repoIndicators
+            },
+            "link_count": len(repo.repoCampaignIndicators),
         },
     )
 
 
 # Campaign indicators =================================================
-@router.post("/campaign-indicators/new")
-def campaign_indicator_create(payload: Annotated[CampaignIndicatorCreateSchema, Form()]):
-    _run(repo.add_campaign_indicator, payload)
-    return _redirect("campaign-indicators")
-
-
-@router.post("/campaign-indicators/{campaign_id}/{indicator_id}/delete")
-def campaign_indicator_delete(campaign_id: int, indicator_id: int):
-    _run(repo.remove_campaign_indicator, campaign_id, indicator_id)
-    return _redirect("campaign-indicators")
+@router.post("/campaign-indicators/{campaign_id}")
+def campaign_indicators_save(campaign_id: int, payload: Annotated[CampaignIndicatorsSchema, Form()]):
+    _run(repo.set_campaign_indicators, campaign_id, payload)
+    return RedirectResponse(
+        url=f"/admin?tab=campaign-indicators&campaign={campaign_id}&saved=1",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 # Settings ============================================================
@@ -168,7 +181,7 @@ def category_delete(category_id: int):
 @router.get("/campaigns/new")
 def campaign_new(request: Request):
     return templates.TemplateResponse(
-        request, "admin/campaign_form.html", _form_context(title="Nouvelle campagne", item=None)
+        request, "admin/campaign_form.html", _form_context(title="Nouvelle campagne", item=None, selected_ids=[])
     )
 
 
@@ -182,7 +195,9 @@ def campaign_create(payload: Annotated[CampaignCreateSchema, Form()]):
 def campaign_edit(request: Request, campaign_id: int):
     item = _run(repo.get_campaign, campaign_id)
     return templates.TemplateResponse(
-        request, "admin/campaign_form.html", _form_context(title=f"Campagne {item.name}", item=item)
+        request,
+        "admin/campaign_form.html",
+        _form_context(title=f"Campagne {item.name}", item=item, selected_ids=repo.campaign_indicator_ids(item.id)),
     )
 
 

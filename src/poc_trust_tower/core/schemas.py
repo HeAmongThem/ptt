@@ -174,7 +174,7 @@ class CampaignSchema(_Schema):
     name: str
     start_date: datetime
     end_date: datetime
-    indicators: list[IndicatorSchema]
+    actif: bool
 
 
 class CampaignCreateSchema(BaseModel):
@@ -183,6 +183,7 @@ class CampaignCreateSchema(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     start_date: datetime
     end_date: datetime
+    actif: bool = False
     indicator_ids: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -202,3 +203,9 @@ class CampaignIndicatorCreateSchema(BaseModel):
 
     campain_id: int
     indicateur_id: int
+
+
+class CampaignIndicatorsSchema(BaseModel):
+    """Ensemble complet des indicateurs d'une campagne (cases cochées du formulaire)."""
+
+    indicator_ids: list[int] = Field(default_factory=list)

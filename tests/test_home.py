@@ -1,15 +1,18 @@
-from datetime import datetime
-
 from fastapi.testclient import TestClient
 
 from poc_trust_tower.core import repository as repo
 from poc_trust_tower.core.schemas import SettingsSchema
 
 
-def test_active_campaigns_by_date() -> None:
-    assert [c.name for c in repo.active_campaigns(datetime(2026, 2, 15))] == ["Campagne T1 2026"]
-    assert [c.name for c in repo.active_campaigns(datetime(2026, 12, 31))] == ["Campagne T4 2026"]
-    assert repo.active_campaigns(datetime(2030, 1, 1)) == []
+def test_active_campaigns_follow_actif_flag() -> None:
+    assert [c.name for c in repo.active_campaigns()] == ["Campagne T4 2026"]
+    first = repo.get_campaign(1)
+    first.actif = True
+    try:
+        assert [c.name for c in repo.active_campaigns()] == ["Campagne T1 2026", "Campagne T4 2026"]  # tri par date de fin
+    finally:
+        first.actif = False
+    assert all(c.actif for c in repo.active_campaigns())
 
 
 def test_home_shows_message_and_active_campaigns(anonymous_client: TestClient) -> None:
