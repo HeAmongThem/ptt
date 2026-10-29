@@ -77,10 +77,10 @@
         {% endif %}
     </p>
 
-    <div class="table-responsive">
+    <div class="table-responsive table-card">
         <table
             id="indicators-table"
-            class="table table-sm table-striped table-hover align-middle"
+            class="table table-modern"
         >
             <thead class="table-light">
                 <tr>
@@ -92,14 +92,14 @@
                     <th scope="col">Availability date</th>
                     <th scope="col">Validation committee</th>
                     <th scope="col">Unit</th>
-                    <th scope="col" class="text-end">Value</th>
-                    <th scope="col" class="text-end">Previous value</th>
-                    <th scope="col" class="text-end">Variation</th>
+                    <th scope="col">Value</th>
+                    <th scope="col">Previous value</th>
+                    <th scope="col">Variation</th>
                     <th scope="col">Comment / analysis</th>
-                    <th scope="col" class="text-end">Threshold certified without reserves</th>
-                    <th scope="col" class="text-end">Threshold acceptable</th>
-                    <th scope="col" class="text-end">Threshold certified with significant reserves</th>
-                    <th scope="col" class="text-end">Threshold not certified</th>
+                    <th scope="col">Threshold certified without reserves</th>
+                    <th scope="col">Threshold acceptable</th>
+                    <th scope="col">Threshold certified with significant reserves</th>
+                    <th scope="col">Threshold not certified</th>
                     {% for status_field, comment_field, level in level_headers %}
                     <th scope="col">Certification {{ level }}{% if status_field == my_status_field %} <span class="badge bg-primary">you</span>{% endif %}</th>
                     {% endfor %}
@@ -132,7 +132,7 @@
                            class="badge bg-primary text-decoration-none">{{ indicator.category.name }}</a>
                     </td>
                     <td>{{ indicator.nature_of_information }}</td>
-                    <td>{{ indicator.description_action_expected }}</td>
+                    <td class="cell-text">{{ indicator.description_action_expected }}</td>
                     <td class="text-nowrap">{{ indicator.availability_date.strftime("%d/%m/%Y") }}</td>
                     <td>{{ indicator.validation_committee }}</td>
                     <td>{{ indicator.unit }}</td>
@@ -141,7 +141,7 @@
                     <td class="text-end text-nowrap {{ 'text-success' if indicator.variation >= 0 else 'text-danger' }}">
                         {{ "%+.2f"|format(indicator.variation) }} %
                     </td>
-                    <td>{{ indicator.comment_analysis }}</td>
+                    <td class="cell-text">{{ indicator.comment_analysis }}</td>
                     <td class="text-end">{{ indicator.thresold_certified_without_reserves }}</td>
                     <td class="text-end">{{ indicator.thresold_acceptable }}</td>
                     <td class="text-end">{{ indicator.thresold_certified_with_significant_reserves }}</td>
@@ -167,7 +167,7 @@
                     <td>{{ indicator.comment_emr_id }}</td>
                     {% for status_field, comment_field, level in level_headers %}
                     {% if editable and status_field == my_status_field %}
-                    <td style="min-width: 12rem">
+                    <td class="cell-text">
                         <input type="hidden" name="comment" form="certify-{{ indicator.id }}" value="{{ indicator[comment_field] }}">
                         <button type="button" class="btn btn-link btn-sm p-0 text-start text-decoration-none js-edit-comment"
                                 data-bs-toggle="modal" data-bs-target="#comment-modal" data-indicator-id="{{ indicator.id }}"
@@ -177,7 +177,7 @@
                         </button>
                     </td>
                     {% else %}
-                    <td>{{ indicator[comment_field] }}</td>
+                    <td class="cell-text">{{ indicator[comment_field] }}</td>
                     {% endif %}
                     {% endfor %}
                     <td class="text-nowrap">{{ indicator.business_unit.name }}</td>

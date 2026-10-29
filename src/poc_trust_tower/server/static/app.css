@@ -1,0 +1,79 @@
+/* Enfants directs de <main> (flex) : doivent pouvoir rétrécir, sinon
+   .table-responsive ne défile jamais horizontalement. */
+main > * {
+    min-width: 0;
+}
+
+/* Tableau "moderne" : fond clair, bordures fines, en-têtes alignés en haut. */
+.table-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+
+.table-modern {
+    --tm-border: #e5e7eb;
+    --tm-head-bg: #f9fafb;
+    --tm-head-color: #475467;
+    --tm-hover-bg: #f5f7fa;
+    font-size: 0.875rem;
+    color: #1f2937;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 0;
+}
+
+.table-modern > thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    vertical-align: top;
+    text-align: center;
+    background: var(--tm-head-bg);
+    color: var(--tm-head-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: normal;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--tm-border);
+    border-right: 1px solid var(--tm-border);
+}
+
+.table-modern > tbody > tr > td {
+    vertical-align: middle;
+    padding: 0.5rem 0.75rem;
+    background: #fff;
+    border-bottom: 1px solid var(--tm-border);
+    border-right: 1px solid var(--tm-border);
+}
+
+.table-modern > thead > tr > th:last-child,
+.table-modern > tbody > tr > td:last-child {
+    border-right: 0;
+}
+
+.table-modern > tbody > tr:last-child > td {
+    border-bottom: 0;
+}
+
+.table-modern > tbody > tr:hover > td {
+    background: var(--tm-hover-bg);
+}
+
+.table-modern .form-select-sm,
+.table-modern .form-control-sm {
+    font-size: 0.8125rem;
+}
+
+/* Bootstrap fonce la bordure sous l'en-tête (currentColor) : on garde la bordure fine. */
+.table-modern > :not(:last-child) > :last-child > * {
+    border-bottom-color: var(--tm-border);
+}
+
+/* Colonnes de texte long : largeur minimale pour un retour à la ligne lisible. */
+.table-modern .cell-text {
+    min-width: 16rem;
+}
