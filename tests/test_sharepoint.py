@@ -130,7 +130,40 @@ def test_import_stores_file_on_sharepoint(admin_client: TestClient) -> None:
     assert calls[-1]["body"] == content
     assert calls[-1]["path"].endswith("_indicateurs.json',overwrite=true)")
     from poc_trust_tower.core import repository as repo
-    repo.delete_indicator(repo.repoIndicators[-1].id)
+    indicator_id = repo.repoIndicators[-1].id
+    # L'audit de l'indicateur importé référence le fichier déposé sur SharePoint.
+    source = [a for a in repo.indicator_audit_trail(indicator_id) if a.field == "source_file"]
+    assert len(source) == 1 and source[0].action == "imported"
+    assert source[0].new_value.startswith("https://okmitconsulting.sharepoint.com/sites/Rgulation/Shared%20Documents/R%C3%A9gulation/")
+    assert source[0].new_value.endswith("_indicateurs.json")
+    detail = admin_client.get(f"/my-certifications/{indicator_id}").text
+    assert 'id="source-file"' in detail
+    assert f'<a href="{source[0].new_value}" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">' in detail
+    assert source[0].new_value.rsplit("/", 1)[-1] in detail  # nom de fichier lisible
+    assert "imported by admin@trust-tower.example" in detail
+    repo.delete_indicator(indicator_id)
+
+
+def test_detail_has_no_source_file_block_for_non_imported_indicator(user_client: TestClient) -> None:
+    assert 'id="source-file"' not in user_client.get("/my-certifications/7").text
+
+
+def test_import_without_sharepoint_has_no_source_entry(admin_client: TestClient) -> None:
+    sharepoint.set_session(None)
+    content = admin_client.get("/admin/indicators/import/template.csv").content
+    admin_client.post("/admin/indicators/import", files={"file": ("indicateurs.csv", content)})
+    from poc_trust_tower.core import repository as repo
+    indicator_id = repo.repoIndicators[-1].id
+    assert not [a for a in repo.indicator_audit_trail(indicator_id) if a.field == "source_file"]
+    repo.delete_indicator(indicator_id)
+
+
+def test_invalid_file_is_not_stored_on_sharepoint(admin_client: TestClient) -> None:
+    calls: list[dict] = []
+    sharepoint.set_session(_session(_fake_sharepoint(calls)))
+    response = admin_client.post("/admin/indicators/import", files={"file": ("notes.txt", b"hello")})
+    assert response.status_code == 422
+    assert calls == []  # rien déposé si le fichier est refusé
 
 
 def test_import_skips_sharepoint_when_disabled(admin_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

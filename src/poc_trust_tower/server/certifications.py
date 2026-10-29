@@ -156,6 +156,7 @@ def my_certifications_by_id(
             "statuses": [s.name for s in CertificationStatus],
             "indicator_campaigns": repo.campaigns_of_indicator(indicator.id),
             "audit_trail": repo.indicator_audit_trail(indicator.id),
+            "source_file": repo.indicator_source_file(indicator.id),
             "view": view,
         },
     )

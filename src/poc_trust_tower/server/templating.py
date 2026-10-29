@@ -1,4 +1,5 @@
 import os
+from urllib.parse import unquote
 
 from fastapi.templating import Jinja2Templates
 
@@ -18,3 +19,5 @@ templates = Jinja2Templates(
 templates.env.globals["variation_kind"] = variation_kind
 # Affichage des valeurs du modèle : "certified_without_reserves" -> "certified without reserves"
 templates.env.filters["humanize"] = lambda value: str(value).replace("_", " ")
+# Nom de fichier lisible à partir d'une URL (ex. lien SharePoint).
+templates.env.filters["filename"] = lambda url: unquote(str(url).rstrip("/").rsplit("/", 1)[-1])

@@ -154,12 +154,21 @@ def parse_indicators(rows: list[dict[str, Any]]) -> list[IndicatorCreateSchema]:
     return payloads
 
 
-def import_indicators(filename: str, content: bytes, actor=None) -> list[Indicator]:
+def prepare_import(filename: str, content: bytes) -> list[IndicatorCreateSchema]:
+    """Lit et valide le fichier sans rien créer (lève en cas d'erreur)."""
     rows = read_rows(filename, content)
     if not rows:
         raise UnsupportedFormatError("Le fichier ne contient aucune ligne de données.")
-    payloads = parse_indicators(rows)
-    return [repo.create_indicator(p, actor=actor, action="imported") for p in payloads]
+    return parse_indicators(rows)
+
+
+def commit_import(payloads: list[IndicatorCreateSchema], actor=None, source_url: str | None = None) -> list[Indicator]:
+    """Crée les indicateurs validés ; `source_url` (fichier archivé) est tracé dans l'audit."""
+    return [repo.create_indicator(p, actor=actor, action="imported", source_url=source_url) for p in payloads]
+
+
+def import_indicators(filename: str, content: bytes, actor=None, source_url: str | None = None) -> list[Indicator]:
+    return commit_import(prepare_import(filename, content), actor=actor, source_url=source_url)
 
 
 # Modèles téléchargeables ==============================================

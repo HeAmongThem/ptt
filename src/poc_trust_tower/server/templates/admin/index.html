@@ -251,7 +251,7 @@
                     <td><span class="badge bg-{{ {'created': 'success', 'imported': 'success', 'updated': 'primary', 'certified': 'info', 'deleted': 'danger'}.get(a.action, 'secondary') }}">{{ a.action }}</span></td>
                     <td class="text-nowrap"><code>{{ a.field }}</code></td>
                     <td class="cell-text">{{ a.old_value }}</td>
-                    <td class="cell-text">{{ a.new_value }}</td>
+                    <td class="cell-text">{% if a.new_value.startswith("http") %}<a href="{{ a.new_value }}" target="_blank" rel="noopener" title="{{ a.new_value }}">{{ a.new_value|filename }}</a>{% else %}{{ a.new_value }}{% endif %}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="7" class="text-center text-muted">Aucune entrée d'audit.</td></tr>

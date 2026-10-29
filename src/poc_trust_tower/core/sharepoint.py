@@ -135,7 +135,7 @@ def login_interactive(config: SharePointConfig) -> SharePointSession:
             while time.monotonic() < deadline:
                 if page.is_closed():
                     raise SharePointAuthError("La fenêtre de connexion SharePoint a été fermée avant l'authentification.")
-                cookies = {c["name"]: c["value"] for c in context.cookies() if site_host.endswith(c["domain"].lstrip("."))}
+                cookies = {c["name"]: c["value"] for c in context.cookies() if site_host.endswith(c["domain"].lstrip("."))} # pyright: ignore[reportTypedDictNotRequiredAccess]
                 if _is_authenticated(page.url, cookies, site_host):
                     log.info("Connexion SharePoint établie (%s)", page.url)
                     browser.close()

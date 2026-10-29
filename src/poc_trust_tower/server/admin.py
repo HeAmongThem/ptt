@@ -333,7 +333,7 @@ async def indicator_import(request: Request, file: Annotated[UploadFile, File()]
     content = await file.read()
     filename = file.filename or ""
     try:
-        created = importers.import_indicators(filename, content, actor=user)
+        payloads = importers.prepare_import(filename, content)
     except importers.ImportValidationError as exc:
         return templates.TemplateResponse(
             request,
@@ -348,10 +348,14 @@ async def indicator_import(request: Request, file: Annotated[UploadFile, File()]
             _import_context(message=str(exc), filename=filename),
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
+    # Dépôt avant création pour que l'audit de chaque indicateur référence le fichier archivé.
+    stored = _store_on_sharepoint(filename, content)
+    source_url = stored["url"] if stored and stored.get("ok") else None
+    created = importers.commit_import(payloads, actor=user, source_url=source_url)
     return templates.TemplateResponse(
         request,
         "admin/indicator_import.html",
-        _import_context(created=created, filename=filename, sharepoint=_store_on_sharepoint(filename, content)),
+        _import_context(created=created, filename=filename, sharepoint=stored),
     )
 
 

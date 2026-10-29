@@ -455,6 +455,11 @@ def indicator_audit_trail(indicator_id: int) -> list[IndicatorAudit]:
     return sorted((a for a in repoIndicatorAudits if a.indicator_id == indicator_id), key=lambda a: (a.timestamp, a.id), reverse=True)
 
 
+def indicator_source_file(indicator_id: int) -> IndicatorAudit | None:
+    """Dernière entrée d'audit référençant le fichier d'import archivé (None si l'indicateur n'a pas été importé)."""
+    return next((a for a in indicator_audit_trail(indicator_id) if a.field == "source_file" and a.new_value), None)
+
+
 def audit_trail(indicator_id: int | None = None, user_id: int | None = None, action: str | None = None, limit: int | None = None) -> list[IndicatorAudit]:
     entries = [
         a for a in repoIndicatorAudits
@@ -487,7 +492,12 @@ def _apply_indicator_payload(indicator: Indicator, payload: IndicatorCreateSchem
     indicator.updated_at = datetime.now()
 
 
-def create_indicator(payload: IndicatorCreateSchema, actor: User | None = None, action: str = "created") -> Indicator:
+def create_indicator(
+    payload: IndicatorCreateSchema,
+    actor: User | None = None,
+    action: str = "created",
+    source_url: str | None = None,
+) -> Indicator:
     now = datetime.now()
     indicator = Indicator(
         id=_next_id(repoIndicators),
@@ -500,7 +510,11 @@ def create_indicator(payload: IndicatorCreateSchema, actor: User | None = None, 
     )
     indicator.variation = _compute_variation(indicator.value, indicator.value_previous)
     repoIndicators.append(indicator)
-    _record_audit(indicator.id, actor, action, [("", "", indicator.description_action_expected)])
+    changes = [("", "", indicator.description_action_expected)]
+    if source_url:
+        # Lien vers le fichier source archivé (ex. dépôt SharePoint du fichier d'import).
+        changes.append(("source_file", "", source_url))
+    _record_audit(indicator.id, actor, action, changes)
     return indicator
 
 
