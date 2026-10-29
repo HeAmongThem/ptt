@@ -44,8 +44,10 @@ repoCategories: list[Category] = [
 # Users ===============================================================
 def _build_users() -> list[User]:
     users = [
-        User(id="1", email="admin@trust-tower.example", password="admin", business_unit=repoBusinessUnits[0], role=ROLE.ADMIN),
-        User(id="2", email="cfo@trust-tower.example", password="cfo", business_unit=repoBusinessUnits[0], role=ROLE.CFO),
+        User(id="1", email="admin@trust-tower.example", password="aaa", business_unit=repoBusinessUnits[0], role=ROLE.ADMIN),
+        User(id="2", email="cfo@trust-tower.example", password="aaa", business_unit=repoBusinessUnits[1], role=ROLE.CFO),
+        User(id="3", email="bu@trust-tower.example", password="aaa", business_unit=repoBusinessUnits[2], role=ROLE.BU),
+        User(id="4", email="buHead@trust-tower.example", password="aaa", business_unit=repoBusinessUnits[3], role=ROLE.BU_HEAD),
     ]
     next_id = len(users) + 1
     for bu in repoBusinessUnits:
