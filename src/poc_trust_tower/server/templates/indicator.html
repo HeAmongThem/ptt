@@ -89,10 +89,6 @@
             </form>
         </div>
     </div>
-    {% elif current_user.role.value in ("BU", "BU_HEAD") %}
-    <div class="alert alert-secondary mt-3 py-2 small">
-        Lecture seule : cet indicateur appartient à {{ indicator.business_unit.name }}, vous êtes rattaché à {{ current_user.business_unit.name }}.
-    </div>
     {% endif %}
 </div>
 {% endblock content %}

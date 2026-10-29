@@ -21,6 +21,7 @@ router = APIRouter(
 @router.get("")
 def my_certifications(
     request: Request,
+    user: CurrentUserDep,
     category: Annotated[str, Query()] = "",
     variation: Annotated[VariationFilter, Query()] = "all",
     bu: Annotated[str, Query()] = "",
@@ -34,40 +35,47 @@ def my_certifications(
         "bu_head": bu_head,
         "cfo": cfo,
     }
-    indicators = repo.filter_indicators(repo.repoIndicators, **filters)  # type: ignore[arg-type]
+    scope = repo.visible_indicators(user)
+    indicators = repo.filter_indicators(scope, **filters)  # type: ignore[arg-type]
     visible_ids = {i.id for i in indicators}
     return templates.TemplateResponse(
         request,
         "indicators.html",
         {
             "title": "Indicators",
-            "indicators": repo.repoIndicators,
+            "indicators": scope,
             "visible_ids": visible_ids,
-            "total": len(repo.repoIndicators),
+            "total": len(scope),
             "filters": filters,
-            "categories": repo.distinct_categories(repo.repoIndicators),
-            "statuses": repo.distinct_statuses(repo.repoIndicators),
+            "categories": repo.distinct_categories(scope),
+            "statuses": repo.distinct_statuses(scope),
         },
     )
 
 
 @router.get("/category/{category}")
-def my_certifications_by_category(request: Request, category: str):
+def my_certifications_by_category(request: Request, category: str, user: CurrentUserDep):
     if repo.get_category(category) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"category {category} not found")
-    return my_certifications(request, category=category)
+    return my_certifications(request, user, category=category)
 
 
-def _get_indicator_or_404(indicator_id: str):
+def _get_visible_indicator(indicator_id: str, user):
     try:
-        return repo.get_indicator(indicator_id)
+        indicator = repo.get_indicator(indicator_id)
     except repo.NotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"indicator with id {indicator_id} not found") from exc
+    if not repo.can_view_indicator(user, indicator):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail=f"indicator {indicator_id} belongs to {indicator.business_unit.name}, not {user.business_unit.name}",
+        )
+    return indicator
 
 
 @router.get("/{indicator_id}")
 def my_certifications_by_id(request: Request, indicator_id: str, user: CurrentUserDep, saved: bool = False):
-    indicator = _get_indicator_or_404(indicator_id)
+    indicator = _get_visible_indicator(indicator_id, user)
     fields = repo.CERTIFICATION_FIELDS.get(user.role)
     denial = repo.certification_denial(user, indicator)
     return templates.TemplateResponse(
@@ -89,7 +97,7 @@ def my_certifications_by_id(request: Request, indicator_id: str, user: CurrentUs
 
 @router.post("/{indicator_id}/certify")
 def my_certifications_certify(indicator_id: str, user: CurrentUserDep, payload: Annotated[CertificationSchema, Form()]):
-    _get_indicator_or_404(indicator_id)
+    _get_visible_indicator(indicator_id, user)
     try:
         repo.certify_indicator(indicator_id, user, payload)
     except repo.ForbiddenError as exc:

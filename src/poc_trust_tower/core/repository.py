@@ -408,3 +408,15 @@ def certify_indicator(indicator_id: str, user: User, payload: CertificationSchem
     setattr(indicator, comment_field, payload.comment)
     indicator.updated_at = datetime.now()
     return indicator
+
+
+# Périmètre de visibilité ==============================================
+def can_view_indicator(user: User, indicator: Indicator) -> bool:
+    """BU et BU_HEAD ne voient que leur business unit ; CFO et ADMIN voient tout."""
+    if user.role in (ROLE.BU, ROLE.BU_HEAD):
+        return indicator.business_unit is user.business_unit
+    return True
+
+
+def visible_indicators(user: User) -> list[Indicator]:
+    return [i for i in repoIndicators if can_view_indicator(user, i)]

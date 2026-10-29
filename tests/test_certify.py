@@ -50,9 +50,7 @@ def test_bu_cannot_certify_other_business_unit(bu_client: TestClient) -> None:
     assert response.status_code == 403
     assert _snapshot(INT_INDICATOR) == before
 
-    page = bu_client.get(f"/my-certifications/{INT_INDICATOR}")
-    assert "Lecture seule" in page.text
-    assert "/certify" not in page.text
+    assert bu_client.get(f"/my-certifications/{INT_INDICATOR}").status_code == 403
 
 
 def test_bu_head_cannot_certify_other_business_unit(bu_head_client: TestClient) -> None:
@@ -67,7 +65,7 @@ def test_cfo_can_certify_any_business_unit(user_client: TestClient) -> None:
 def test_admin_cannot_certify(admin_client: TestClient) -> None:
     assert _certify(admin_client, DIG_INDICATOR, "pending", "").status_code == 403
     page = admin_client.get(f"/my-certifications/{DIG_INDICATOR}")
-    assert "/certify" not in page.text and "Lecture seule" not in page.text
+    assert page.status_code == 200 and "/certify" not in page.text
 
 
 def test_form_shows_only_user_level(bu_client: TestClient) -> None:
@@ -90,3 +88,42 @@ def test_unknown_indicator(bu_client: TestClient) -> None:
 def test_anonymous_cannot_certify(anonymous_client: TestClient) -> None:
     response = _certify(anonymous_client, DIG_INDICATOR, "pending", "")
     assert response.status_code == 303 and response.headers["location"].startswith("/login")
+
+
+# Périmètre de visibilité ===============================================
+def _visible_rows(client: TestClient, **params) -> list[str]:
+    import re
+    html = client.get("/my-certifications", params=params).text
+    return re.findall(r'data-href="/my-certifications/(\d+)"', html)
+
+
+def test_bu_sees_only_its_business_unit(bu_client: TestClient) -> None:
+    ids = _visible_rows(bu_client)
+    assert len(ids) == 10
+    assert all(repo.get_indicator(i).business_unit.id == "DIG" for i in ids)
+    assert '<span id="count-visible">10</span> / 10' in bu_client.get("/my-certifications").text
+
+
+def test_bu_head_sees_only_its_business_unit(bu_head_client: TestClient) -> None:
+    ids = _visible_rows(bu_head_client)
+    assert ids and all(repo.get_indicator(i).business_unit.id == "INT" for i in ids)
+
+
+@pytest.mark.parametrize("fixture", ["user_client", "admin_client"])
+def test_cfo_and_admin_see_everything(request, fixture: str) -> None:
+    client: TestClient = request.getfixturevalue(fixture)
+    assert len(_visible_rows(client)) == len(repo.repoIndicators)
+
+
+def test_scope_applies_to_category_page(bu_client: TestClient) -> None:
+    html = bu_client.get("/my-certifications/category/OPS").text
+    import re
+    ids = re.findall(r'data-href="/my-certifications/(\d+)"', html)
+    assert ids and all(repo.get_indicator(i).business_unit.id == "DIG" for i in ids)
+
+
+def test_scope_applies_to_detail_page(bu_client: TestClient, bu_head_client: TestClient) -> None:
+    assert bu_client.get(f"/my-certifications/{DIG_INDICATOR}").status_code == 200
+    assert bu_client.get(f"/my-certifications/{INT_INDICATOR}").status_code == 403
+    assert bu_head_client.get(f"/my-certifications/{INT_INDICATOR}").status_code == 200
+    assert bu_head_client.get(f"/my-certifications/{DIG_INDICATOR}").status_code == 403
