@@ -144,3 +144,49 @@ select.form-select[class*="status-"] option {
     font-weight: 500;
     white-space: nowrap;
 }
+
+/* Tableau de détail (fiche) : libellés en colonne de gauche, sections en bandeau. */
+.table-modern.table-detail > tbody > tr > th[scope="row"] {
+    width: 34%;
+    background: var(--tm-head-bg);
+    color: var(--tm-head-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    vertical-align: top;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--tm-border);
+    border-right: 1px solid var(--tm-border);
+}
+.table-modern.table-detail > tbody > tr.table-section > th {
+    width: auto;
+    background: #eef2f6;
+    color: #344054;
+    font-size: 0.8125rem;
+    letter-spacing: 0.04em;
+    padding: 0.5rem 0.75rem;
+    border-right: 0;
+}
+.table-modern.table-detail > tbody > tr:last-child > th {
+    border-bottom: 0;
+}
+.table-modern.table-detail > tbody > tr:hover > th[scope="row"] {
+    background: var(--tm-head-bg);
+}
+
+/* Carte générique (formulaire de certification) alignée sur table-card. */
+.card-modern {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+.card-modern > .card-header {
+    background: var(--tm-head-bg, #f9fafb);
+    color: #475467;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #e5e7eb;
+}

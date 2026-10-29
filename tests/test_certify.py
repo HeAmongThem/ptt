@@ -40,7 +40,7 @@ def test_role_updates_only_its_own_fields(request, fixture, indicator_id, status
     assert untouched == {k: v for k, v in before.items() if k not in (status_field, comment_field)}
 
     page = client.get(f"/my-certifications/{indicator_id}?saved=1")
-    assert "Votre certification a été enregistrée" in page.text
+    assert "Your certification has been saved" in page.text
     assert '<option value="certified_without_reserves" selected>' in page.text
 
 
@@ -70,7 +70,7 @@ def test_admin_cannot_certify(admin_client: TestClient) -> None:
 
 def test_form_shows_only_user_level(bu_client: TestClient) -> None:
     page = bu_client.get(f"/my-certifications/{DIG_INDICATOR}")
-    assert "niveau BU</div>" in page.text
+    assert "Your certification — BU</div>" in page.text
     assert 'name="status"' in page.text and 'name="comment"' in page.text
     assert page.text.count('name="status"') == 1  # un seul formulaire, pas un par niveau
 
