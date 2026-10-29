@@ -93,6 +93,7 @@ def _read_json(content: bytes) -> list[dict[str, Any]]:
 
 def _read_xlsx(content: bytes) -> list[dict[str, Any]]:
     sheet = load_workbook(io.BytesIO(content), read_only=True, data_only=True).active
+    assert sheet is not None
     rows = sheet.iter_rows(values_only=True)
     header = [str(h).strip() if h is not None else "" for h in next(rows, [])]
     result = []
@@ -177,6 +178,7 @@ def template_json() -> bytes:
 def template_xlsx() -> bytes:
     workbook = Workbook()
     sheet = workbook.active
+    assert sheet is not None
     sheet.title = "indicators"
     sheet.append(COLUMNS)
     sheet.append([

@@ -130,16 +130,18 @@ class IndicatorCreateSchema(BaseModel):
 
     @model_validator(mode="after")
     def _check_thresholds_order(self) -> "IndicatorCreateSchema":
-        thresholds = (
+        # Décroissants si "plus = mieux" (ex. taux de couverture), croissants
+        # si "moins = mieux" (ex. absentéisme, nombre d'incidents).
+        thresholds = [
             self.thresold_certified_without_reserves,
             self.thresold_acceptable,
             self.thresold_certified_with_significant_reserves,
             self.thresold_not_certified,
-        )
-        if list(thresholds) != sorted(thresholds, reverse=True):
+        ]
+        if thresholds not in (sorted(thresholds), sorted(thresholds, reverse=True)):
             raise ValueError(
-                "thresholds must be decreasing: certified_without_reserves >= acceptable "
-                ">= certified_with_significant_reserves >= not_certified"
+                "thresholds must be monotonic (all decreasing or all increasing): "
+                "certified_without_reserves, acceptable, certified_with_significant_reserves, not_certified"
             )
         return self
 
