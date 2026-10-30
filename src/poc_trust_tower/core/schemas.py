@@ -70,6 +70,22 @@ class UserUpdateSchema(BaseModel):
         return self
 
 
+class PasswordChangeSchema(BaseModel):
+    """Changement de mot de passe par l'utilisateur lui-même."""
+
+    current_password: str
+    new_password: str = Field(min_length=4)
+    confirm_password: str
+
+    @model_validator(mode="after")
+    def _check_confirmation(self) -> "PasswordChangeSchema":
+        if self.new_password != self.confirm_password:
+            raise ValueError("new_password and confirm_password do not match")
+        if self.new_password == self.current_password:
+            raise ValueError("new_password must differ from current_password")
+        return self
+
+
 # Indicators ==========================================================
 class IndicatorSchema(_Schema):
     id: int

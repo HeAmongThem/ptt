@@ -2,10 +2,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ValidationError
 
 from poc_trust_tower.core import repository as repo
 from poc_trust_tower.core.model import ROLE, User
+from poc_trust_tower.core.schemas import PasswordChangeSchema
 from poc_trust_tower.core.security import verify_password
 from poc_trust_tower.server.templating import templates
 
@@ -100,3 +101,43 @@ def login(request: Request, payload: Annotated[LoginSchema, Form()], next_url: N
 def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# Mot de passe (libre-service, tout utilisateur connecté) ===============
+def _password_page(request: Request, *, error: str | None = None, saved: bool = False, status_code: int = 200):
+    return templates.TemplateResponse(
+        request,
+        "password.html",
+        {"title": "Mon mot de passe", "error": error, "saved": saved},
+        status_code=status_code,
+    )
+
+
+@router.get("/account/password")
+def password_form(request: Request, user: CurrentUserDep, saved: bool = False):
+    return _password_page(request, saved=saved)
+
+
+@router.post("/account/password")
+async def password_change(request: Request, user: CurrentUserDep):
+    form = await request.form()
+    try:
+        payload = PasswordChangeSchema(
+            current_password=str(form.get("current_password", "")),
+            new_password=str(form.get("new_password", "")),
+            confirm_password=str(form.get("confirm_password", "")),
+        )
+    except ValidationError as exc:
+        messages = {
+            "new_password and confirm_password do not match": "La confirmation ne correspond pas au nouveau mot de passe.",
+            "new_password must differ from current_password": "Le nouveau mot de passe doit être différent de l'actuel.",
+        }
+        detail = exc.errors()[0]["msg"].removeprefix("Value error, ")
+        if "at least 4" in detail:
+            detail = "Le nouveau mot de passe doit contenir au moins 4 caractères."
+        return _password_page(request, error=messages.get(detail, detail), status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+    try:
+        repo.change_password(user, payload)
+    except repo.ForbiddenError:
+        return _password_page(request, error="Le mot de passe actuel est incorrect.", status_code=status.HTTP_403_FORBIDDEN)
+    return RedirectResponse("/account/password?saved=1", status_code=status.HTTP_303_SEE_OTHER)

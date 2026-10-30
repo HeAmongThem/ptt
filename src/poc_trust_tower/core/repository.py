@@ -12,7 +12,7 @@ from poc_trust_tower.core.model import (
     IndicatorAudit,
     User,
 )
-from poc_trust_tower.core.security import DEMO_ROUNDS, hash_password
+from poc_trust_tower.core.security import DEMO_ROUNDS, hash_password, verify_password
 from poc_trust_tower.core.schemas import (
     BusinessUnitCreateSchema,
     CampaignCreateSchema,
@@ -21,6 +21,7 @@ from poc_trust_tower.core.schemas import (
     CategoryCreateSchema,
     CertificationSchema,
     IndicatorCreateSchema,
+    PasswordChangeSchema,
     SettingsSchema,
     UserCreateSchema,
     UserUpdateSchema,
@@ -332,6 +333,13 @@ def update_user(user_id: int, payload: UserUpdateSchema) -> User:
     if payload.password:
         user.password = hash_password(payload.password)
     return user
+
+
+def change_password(user: User, payload: PasswordChangeSchema) -> None:
+    """Change le mot de passe de l'utilisateur après vérification de l'actuel."""
+    if not verify_password(payload.current_password, user.password):
+        raise ForbiddenError("current password is incorrect")
+    user.password = hash_password(payload.new_password)
 
 
 def delete_user(user_id: int) -> None:

@@ -112,3 +112,65 @@ def test_login_next_round_trip(anonymous_client: TestClient) -> None:
     login = anonymous_client.post(redirect.headers["location"], data={"email": "admin@trust-tower.example", "password": "aaa"})
     assert login.status_code == 303 and login.headers["location"] == "/admin"
     assert anonymous_client.get("/admin").status_code == 200
+
+
+# Changement de mot de passe (libre-service) ============================
+def _restore_password(email: str, password: str) -> None:
+    from poc_trust_tower.core import repository as repo
+    from poc_trust_tower.core.security import hash_password, DEMO_ROUNDS
+    user = next(u for u in repo.repoUsers if u.email == email)
+    user.password = hash_password(password, rounds=DEMO_ROUNDS)
+
+
+def test_password_page_requires_login(anonymous_client: TestClient) -> None:
+    response = anonymous_client.get("/account/password")
+    assert response.status_code == 303 and response.headers["location"] == "/login?next=/account/password"
+
+
+def test_password_page_available_to_non_admin(bu_client: TestClient) -> None:
+    response = bu_client.get("/account/password")
+    assert response.status_code == 200
+    assert 'name="current_password"' in response.text and "bu@trust-tower.example" in response.text
+
+
+def test_change_password_success(bu_client: TestClient) -> None:
+    try:
+        response = bu_client.post("/account/password", data={"current_password": "aaa", "new_password": "nouveau1", "confirm_password": "nouveau1"})
+        assert response.status_code == 303 and response.headers["location"] == "/account/password?saved=1"
+        assert "Votre mot de passe a été modifié" in bu_client.get("/account/password?saved=1").text
+
+        fresh = TestClient(app, follow_redirects=False)
+        assert fresh.post("/login", data={"email": "bu@trust-tower.example", "password": "aaa"}).status_code == 401
+        assert fresh.post("/login", data={"email": "bu@trust-tower.example", "password": "nouveau1"}).status_code == 303
+    finally:
+        _restore_password("bu@trust-tower.example", "aaa")
+
+
+def test_change_password_rejects_wrong_current(bu_client: TestClient) -> None:
+    response = bu_client.post("/account/password", data={"current_password": "wrong", "new_password": "nouveau1", "confirm_password": "nouveau1"})
+    assert response.status_code == 403 and "actuel est incorrect" in response.text
+    assert TestClient(app).post("/login", data={"email": "bu@trust-tower.example", "password": "aaa"}).status_code in (200, 303)
+
+
+@pytest.mark.parametrize(
+    ("new", "confirm", "message"),
+    [
+        ("nouveau1", "autre", "ne correspond pas"),
+        ("ab", "ab", "au moins 4"),
+    ],
+)
+def test_change_password_validation(bu_client: TestClient, new: str, confirm: str, message: str) -> None:
+    response = bu_client.post("/account/password", data={"current_password": "aaa", "new_password": new, "confirm_password": confirm})
+    assert response.status_code == 422 and message in response.text
+
+
+def test_new_password_must_differ_from_current() -> None:
+    from pydantic import ValidationError
+    from poc_trust_tower.core.schemas import PasswordChangeSchema
+    with pytest.raises(ValidationError, match="must differ"):
+        PasswordChangeSchema(current_password="same1", new_password="same1", confirm_password="same1")
+
+
+def test_nav_has_password_link(bu_client: TestClient, anonymous_client: TestClient) -> None:
+    assert 'href="/account/password"' in bu_client.get("/").text
+    assert 'href="/account/password"' not in anonymous_client.get("/").text
