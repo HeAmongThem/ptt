@@ -8,10 +8,10 @@ from urllib.parse import unquote, urlsplit
 from dotenv import load_dotenv
 
 # .env à la racine du projet (cwd) ou à côté du package ; les variables déjà définies priment.
-for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"):
-    if candidate.is_file():
-        load_dotenv(candidate, override=False)
-        break
+# for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"):
+#     if candidate.is_file():
+#         load_dotenv(candidate, override=False)
+#         break
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
