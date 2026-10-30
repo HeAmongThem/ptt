@@ -6,6 +6,9 @@ import threading
 import time
 import uvicorn
 import webview
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 from poc_trust_tower.core import sharepoint
 from poc_trust_tower.core.config import load_sharepoint_config
 from poc_trust_tower.server.server import app
@@ -42,8 +45,15 @@ def fail_and_exit(message: str) -> None:
     webview.start()
     sys.exit(1)
 
+def app_load_env() -> None: 
+    # .env à la racine du projet (cwd) ou à côté du package ; les variables déjà définies priment.
+    for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"):
+        if candidate.is_file():
+            load_dotenv(candidate, override=False)
+            break
 
 def main() -> None:
+    app_load_env()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     connect_sharepoint()
