@@ -145,7 +145,8 @@ def build_state(payload: dict[str, Any]) -> dict[str, Any]:
                 )
             except BootstrapError as exc:
                 raise BootstrapError(f"repoUsers, utilisateur {r.get('id')} ({r.get('email')}) : {exc}") from exc
-        indicator_fields = [f for f in Indicator.__dataclass_fields__ if f not in ("id", "category", "business_unit")]
+        
+        indicator_fields = [f for f in Indicator.__dataclass_fields__ if f not in ("id", "category", "business_unit")]        
         indicators = []
         for r in payload["repoIndicators"]:
             kwargs = {}
@@ -157,14 +158,17 @@ def build_state(payload: dict[str, Any]) -> dict[str, Any]:
                     value = float(value if value is not None else 0)
                 kwargs[f] = value
             indicators.append(Indicator(id=int(r["id"]), category=cat(r), business_unit=bu(r), **kwargs))
+        
         campaigns = [
             Campaign(id=int(r["id"]), name=str(r["name"]), start_date=_dt(r["start_date"]), end_date=_dt(r["end_date"]), actif=bool(r.get("actif", False)))
             for r in payload["repoCampaigns"]
         ]
+        
         links = [
             CampaignIndicator(campain_id=int(r.get("campain_id", r.get("campaign_id"))), indicateur_id=int(r.get("indicateur_id", r.get("indicator_id"))))
             for r in payload["repoCampaignIndicators"]
         ]
+        
         audits = [
             IndicatorAudit(
                 id=int(r["id"]), indicator_id=int(r["indicator_id"]),
@@ -174,6 +178,7 @@ def build_state(payload: dict[str, Any]) -> dict[str, Any]:
             )
             for r in payload["repoIndicatorAudits"]
         ]
+        
         settings = {str(k): str(v) for k, v in (payload["repoSettings"] or {}).items()}
     except BootstrapError:
         raise
