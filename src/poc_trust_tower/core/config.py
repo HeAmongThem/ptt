@@ -8,10 +8,10 @@ from urllib.parse import unquote, urlsplit
 from dotenv import load_dotenv
 
 # .env à la racine du projet (cwd) ou à côté du package ; les variables déjà définies priment.
-# for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"):
-#     if candidate.is_file():
-#         load_dotenv(candidate, override=False)
-#         break
+for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"):
+    if candidate.is_file():
+        load_dotenv(candidate, override=False)
+        break
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -64,4 +64,19 @@ def load_sharepoint_config() -> SharePointConfig:
         url=os.environ.get("SHAREPOINT_URL", "").strip(),
         folder=os.environ.get("SHAREPOINT_FOLDER", "").strip(),
         login_timeout=int(os.environ.get("SHAREPOINT_LOGIN_TIMEOUT", "180")),
+    )
+
+
+@dataclass(frozen=True)
+class DataConfig:
+    """Source des données : jeu de démonstration intégré (DEMO=true) ou API Trust Tower."""
+
+    demo: bool
+    api_url: str
+
+
+def load_data_config() -> DataConfig:
+    return DataConfig(
+        demo=_as_bool(os.environ.get("DEMO"), default=True),
+        api_url=os.environ.get("TRUST_TOWER_API", "").strip(),
     )

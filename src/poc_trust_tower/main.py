@@ -9,7 +9,7 @@ import webview
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from poc_trust_tower.core import sharepoint
+from poc_trust_tower.core import bootstrap, sharepoint
 from poc_trust_tower.core.config import load_sharepoint_config
 from poc_trust_tower.server.server import app
 
@@ -33,13 +33,24 @@ def connect_sharepoint() -> None:
         fail_and_exit(f"Connexion à SharePoint impossible : {exc}")
 
 
+def load_data() -> None:
+    """Initialise les données (API Trust Tower si DEMO=false) ; bloque le démarrage en cas d'échec."""
+    try:
+        counts = bootstrap.initialize()
+    except bootstrap.BootstrapError as exc:
+        fail_and_exit(f"Initialisation des données impossible : {exc}")
+    else:
+        if counts:
+            logging.info("Données initialisées depuis l'API Trust Tower : %s", counts)
+
+
 def fail_and_exit(message: str) -> None:
     """Affiche le message d'erreur dans une fenêtre puis arrête l'application."""
     logging.error(message)
     body = f"""<!doctype html><html lang="fr"><body style="font-family: system-ui; padding: 2rem; color: #842029; background: #f8d7da">
     <h1 style="font-size: 1.25rem">Trust Tower ne peut pas démarrer</h1>
     <p>{html.escape(message)}</p>
-    <p style="color: #333">Vérifiez vos identifiants SharePoint ou désactivez l'intégration (SHAREPOINT_USE=false dans .env), puis relancez l'application.</p>
+    <p style="color: #333">Vérifiez la configuration du fichier .env (DEMO, TRUST_TOWER_API, SHAREPOINT_*), puis relancez l'application.</p>
     </body></html>"""
     webview.create_window("Trust Tower — erreur", html=body, width=640, height=320)
     webview.start()
@@ -56,6 +67,7 @@ def main() -> None:
     app_load_env()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    load_data()
     connect_sharepoint()
     server = uvicorn.Server(
         uvicorn.Config(

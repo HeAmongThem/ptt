@@ -1,10 +1,12 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
+from poc_trust_tower.core import bootstrap
 from poc_trust_tower.core import repository as repo
 from poc_trust_tower.server.admin import router as admin_router
 from poc_trust_tower.server.auth import NotAuthenticated
@@ -16,7 +18,14 @@ from poc_trust_tower.server.templating import templates
 SECRET_KEY = os.environ.get("TRUST_TOWER_SECRET_KEY", "dev-only-change-me")
 SESSION_MAX_AGE = 8 * 60 * 60
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # DEMO=false : les repos sont initialisés depuis l'API Trust Tower avant de servir.
+    bootstrap.initialize()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=SESSION_MAX_AGE, same_site="lax")
 app.mount("/statics", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 app.include_router(auth_router)
