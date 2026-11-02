@@ -15,10 +15,15 @@ def test_active_campaigns_follow_actif_flag() -> None:
     assert all(c.actif for c in repo.active_campaigns())
 
 
-def test_home_shows_message_and_active_campaigns(anonymous_client: TestClient) -> None:
+def test_home_shows_message_and_active_campaigns(anonymous_client: TestClient, user_client: TestClient) -> None:
     html = anonymous_client.get("/").text
     assert "Application POC Trust Tower." in html
     assert "suivi de certification d" in html
+    assert "active-campaign" not in html  # campagnes réservées aux utilisateurs identifiés
+    assert "Se connecter" in html
+
+    html = user_client.get("/").text
+    assert 'class="card card-modern active-campaign"' in html
     for campaign in repo.active_campaigns():
         assert campaign.name in html
         assert campaign.start_date.strftime("%d/%m/%Y") in html
