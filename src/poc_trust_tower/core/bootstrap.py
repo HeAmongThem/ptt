@@ -4,7 +4,7 @@ L'API est appelée en POST (Content-Type: application/json) et renvoie :
 {
     "repoBusinessUnits": [...], "repoCategories": [...], "repoUsers": [...],
     "repoIndicators": [...], "repoCampaigns": [...], "repoCampaignIndicators": [...],
-    "repoIndicatorAudits": [...], "repoSettings": {...}
+    "repoIndicatorAudits": [...], "repoSettings": {"id": 1, "home_message": "..."}
 }
 Les références (business unit, catégorie) sont acceptées sous forme d'id
 (`business_unit_id`, `category_id`), d'id direct (`business_unit`: 3) ou d'objet imbriqué.
@@ -108,6 +108,21 @@ def _looks_hashed(password: str) -> bool:
     return password.startswith(("$2a$", "$2b$", "$2y$"))
 
 
+def _build_settings(row: Any) -> dict[str, Any]:
+    """Paramètres d'affichage : `id` entier (défaut 1) et `home_message` texte (défaut du repo)."""
+    if isinstance(row, list):
+        row = row[0] if row else {}
+    if not isinstance(row, dict):
+        raise BootstrapError(f"repoSettings doit être un objet, reçu {type(row).__name__}")
+    settings = repo.default_settings()
+    if row.get("id") is not None:
+        settings["id"] = int(row["id"])
+    message = str(row.get("home_message") or "").strip()
+    if message:
+        settings["home_message"] = message
+    return settings
+
+
 def build_state(payload: dict[str, Any]) -> dict[str, Any]:
     """Transforme la réponse JSON en objets du domaine (sans toucher aux repos)."""
     missing = [k for k in REPO_KEYS if k not in payload]
@@ -179,7 +194,7 @@ def build_state(payload: dict[str, Any]) -> dict[str, Any]:
             for r in payload["repoIndicatorAudits"]
         ]
         
-        settings = {str(k): str(v) for k, v in (payload["repoSettings"] or {}).items()}
+        settings = _build_settings(payload["repoSettings"] or {})
     except BootstrapError:
         raise
     except (KeyError, TypeError, ValueError) as exc:
@@ -197,7 +212,7 @@ def apply_state(state: dict[str, Any]) -> None:
         target = getattr(repo, key)
         if isinstance(target, dict):
             target.clear()
-            target.update({"home_message": repo.DEFAULT_HOME_MESSAGE, **state[key]})
+            target.update({**repo.default_settings(), **state[key]})
         else:
             target[:] = state[key]
     repo._HIGH_WATER_IDS.clear()

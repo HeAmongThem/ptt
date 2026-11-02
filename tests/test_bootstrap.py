@@ -29,7 +29,7 @@ def test_serialize_state_matches_api_contract(snapshot) -> None:
     assert set(snapshot) == set(bootstrap.REPO_KEYS)
     assert snapshot["repoUsers"][0]["business_unit"] == 1  # références par id
     assert snapshot["repoIndicators"][0]["category"] in {c["id"] for c in snapshot["repoCategories"]}
-    assert isinstance(snapshot["repoSettings"], dict)
+    assert snapshot["repoSettings"] == {"id": 1, "home_message": repo.DEFAULT_HOME_MESSAGE}
 
 
 def test_load_from_api_posts_json_and_rebuilds_repos(snapshot) -> None:
@@ -37,7 +37,7 @@ def test_load_from_api_posts_json_and_rebuilds_repos(snapshot) -> None:
     payload = copy.deepcopy(snapshot)
     payload["repoBusinessUnits"].append({"id": 99, "name": "BU Test"})
     payload["repoIndicators"] = payload["repoIndicators"][:3]
-    payload["repoSettings"] = {"home_message": "Message depuis l'API"}
+    payload["repoSettings"] = {"id": "7", "home_message": "Message depuis l'API"}
 
     counts = bootstrap.load_from_api("http://api.test/run", transport=_api(payload, calls))
 
@@ -49,6 +49,7 @@ def test_load_from_api_posts_json_and_rebuilds_repos(snapshot) -> None:
     assert len(repo.repoIndicators) == 3
     assert repo.get_indicator(1).business_unit is repo.get_business_unit(2)  # références résolues vers les mêmes objets
     assert repo.get_home_message() == "Message depuis l'API"
+    assert repo.repoSettings == {"id": 7, "home_message": "Message depuis l'API"}  # id converti en entier
     assert repo._next_id(repo.repoIndicators) == 4  # compteurs réinitialisés
 
 
@@ -85,6 +86,17 @@ def test_build_state_rejects_invalid_payloads(snapshot, mutate, message) -> None
     payload = copy.deepcopy(snapshot)
     mutate(payload)
     with pytest.raises(bootstrap.BootstrapError, match=message):
+        bootstrap.build_state(payload)
+
+
+def test_build_state_settings_defaults_and_validation(snapshot) -> None:
+    payload = copy.deepcopy(snapshot)
+    payload["repoSettings"] = {}
+    assert bootstrap.build_state(payload)["repoSettings"] == {"id": 1, "home_message": repo.DEFAULT_HOME_MESSAGE}
+    payload["repoSettings"] = [{"id": 3, "home_message": "liste"}]
+    assert bootstrap.build_state(payload)["repoSettings"] == {"id": 3, "home_message": "liste"}
+    payload["repoSettings"] = {"id": "abc"}
+    with pytest.raises(bootstrap.BootstrapError, match="réponse API invalide"):
         bootstrap.build_state(payload)
 
 

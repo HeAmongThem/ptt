@@ -1,5 +1,5 @@
 """Repo des paramètres d'affichage."""
-
+from typing import Any
 from poc_trust_tower.core.schemas import SettingsSchema
 
 DEFAULT_HOME_MESSAGE = (
@@ -7,7 +7,15 @@ DEFAULT_HOME_MESSAGE = (
     "Un outil d'aide et de suivi de certification d'indicateurs."
 )
 
-repoSettings: dict[str, str] = {"home_message": DEFAULT_HOME_MESSAGE}
+DEFAULT_SETTINGS_ID = 1
+
+
+def default_settings() -> dict[str, Any]:
+    """Nouveau dictionnaire de paramètres avec les valeurs par défaut."""
+    return {"id": DEFAULT_SETTINGS_ID, "home_message": DEFAULT_HOME_MESSAGE}
+
+
+repoSettings: dict[str, Any] = default_settings()
 
 
 def get_home_message() -> str:

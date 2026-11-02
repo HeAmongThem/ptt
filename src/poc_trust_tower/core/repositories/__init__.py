@@ -93,6 +93,8 @@ from .indicators import (  # noqa: F401
 )
 from .settings import (  # noqa: F401
     DEFAULT_HOME_MESSAGE,
+    DEFAULT_SETTINGS_ID,
+    default_settings,
     get_home_message,
     repoSettings,
     update_settings,
@@ -145,6 +147,8 @@ __all__ = [
     "create_indicator",
     "create_user",
     "DEFAULT_HOME_MESSAGE",
+    "DEFAULT_SETTINGS_ID",
+    "default_settings",
     "delete_business_unit",
     "delete_campaign",
     "delete_category",
