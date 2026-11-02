@@ -1,6 +1,6 @@
 """Initialisation des repos depuis l'API Trust Tower (mode DEMO=false).
 
-L'API est appelée en POST (Content-Type: application/json) et renvoie :
+L'API est appelée en POST avec {"command": "fetch", "repo_name": "all"} et renvoie :
 {
     "repoBusinessUnits": [...], "repoCategories": [...], "repoUsers": [...],
     "repoIndicators": [...], "repoCampaigns": [...], "repoCampaignIndicators": [...],
@@ -8,6 +8,7 @@ L'API est appelée en POST (Content-Type: application/json) et renvoie :
 }
 Les références (business unit, catégorie) sont acceptées sous forme d'id
 (`business_unit_id`, `category_id`), d'id direct (`business_unit`: 3) ou d'objet imbriqué.
+Les écritures (create/update/delete) passent ensuite par core/sync.py.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from typing import Any
 import httpx
 
 from poc_trust_tower.core import repository as repo
+from poc_trust_tower.core.api_client import ApiError, TrustTowerApi
 from poc_trust_tower.core.model import (
     ROLE,
     BusinessUnit,
@@ -220,20 +222,10 @@ def apply_state(state: dict[str, Any]) -> None:
 
 # Chargement depuis l'API ================================================
 def fetch_state(api_url: str, transport: httpx.BaseTransport | None = None, timeout: float = 30) -> dict[str, Any]:
-    if not api_url:
-        raise BootstrapError("DEMO=false mais TRUST_TOWER_API n'est pas définie dans le fichier .env.")
     try:
-        with httpx.Client(timeout=timeout, transport=transport) as client:
-            response = client.post(api_url, json={"command" : "fetch_repos"}, headers={"Content-Type": "application/json", "Accept": "application/json"})
-            response.raise_for_status()
-            payload = response.json()
-    except httpx.HTTPError as exc:
-        raise BootstrapError(f"appel de l'API Trust Tower impossible ({api_url}) : {exc}") from exc
-    except ValueError as exc:
-        raise BootstrapError(f"réponse de l'API Trust Tower non JSON ({api_url})") from exc
-    if not isinstance(payload, dict):
-        raise BootstrapError("la réponse de l'API Trust Tower doit être un objet JSON")
-    return payload
+        return TrustTowerApi(api_url, transport=transport, timeout=timeout).fetch_all()
+    except ApiError as exc:
+        raise BootstrapError(str(exc)) from exc
 
 
 def load_from_api(api_url: str, transport: httpx.BaseTransport | None = None) -> dict[str, int]:
@@ -249,16 +241,20 @@ _initialized = False
 
 
 def initialize(force: bool = False) -> dict[str, int] | None:
-    """Charge les données depuis l'API si DEMO=false (une seule fois). Renvoie None en mode démo."""
+    """Charge les données depuis l'API si DEMO=false (une seule fois) et active le mode API
+    (toutes les lectures/écritures passent ensuite par l'API). Renvoie None en mode démo."""
     global _initialized
+    from poc_trust_tower.core import sync
     from poc_trust_tower.core.config import load_data_config
 
     config = load_data_config()
     if config.demo:
+        repo.set_store(None)
         log.info("DEMO=true : jeu de données de démonstration.")
         return None
     if _initialized and not force:
         return None
     counts = load_from_api(config.api_url)
+    sync.install(TrustTowerApi(config.api_url))
     _initialized = True
     return counts

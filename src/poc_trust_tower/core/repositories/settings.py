@@ -2,6 +2,8 @@
 from typing import Any
 from poc_trust_tower.core.schemas import SettingsSchema
 
+from ._base import _save
+
 DEFAULT_HOME_MESSAGE = (
     "Application POC Trust Tower. "
     "Un outil d'aide et de suivi de certification d'indicateurs."
@@ -24,3 +26,4 @@ def get_home_message() -> str:
 
 def update_settings(payload: SettingsSchema) -> None:
     repoSettings["home_message"] = payload.home_message.strip()
+    _save("repoSettings", repoSettings)

@@ -4,10 +4,12 @@ from fastapi import FastAPI, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import RedirectResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
-from poc_trust_tower.core import bootstrap
+from poc_trust_tower.core import bootstrap, sync
 from poc_trust_tower.core import repository as repo
+from poc_trust_tower.core.api_client import ApiError
 from poc_trust_tower.server.admin import router as admin_router
 from poc_trust_tower.server.auth import NotAuthenticated
 from poc_trust_tower.server.auth import router as auth_router
@@ -26,6 +28,20 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.middleware("http")
+async def refresh_repos_from_api(request: Request, call_next):
+    """DEMO=false, pas de cache : les repos sont rechargés depuis l'API avant chaque requête.
+    Enregistré avant SessionMiddleware pour s'exécuter à l'intérieur de celui-ci (page d'erreur avec session)."""
+    if sync.is_api_mode() and not request.url.path.startswith("/statics"):
+        try:
+            await run_in_threadpool(sync.refresh)
+        except ApiError as exc:
+            return error_response(request, status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+    return await call_next(request)
+
+
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=SESSION_MAX_AGE, same_site="lax")
 app.mount("/statics", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 app.include_router(auth_router)
@@ -59,6 +75,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         f"{'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}" for err in exc.errors()
     )
     return error_response(request, status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
+
+
+@app.exception_handler(ApiError)
+async def api_error_handler(request: Request, exc: ApiError):
+    # Écriture refusée ou API injoignable : rien n'a été modifié localement.
+    return error_response(request, status.HTTP_502_BAD_GATEWAY, str(exc))
 
 
 @app.exception_handler(Exception)

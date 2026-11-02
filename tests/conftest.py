@@ -1,12 +1,20 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from poc_trust_tower.core import repository as repo
 from poc_trust_tower.server.server import app
 
 ADMIN_CREDENTIALS = {"email": "admin@trust-tower.example", "password": "aaa"}
 USER_CREDENTIALS = {"email": "cfo@trust-tower.example", "password": "aaa"}
 BU_CREDENTIALS = {"email": "bu@trust-tower.example", "password": "aaa"}  # BU Digital (DIG)
 BU_HEAD_CREDENTIALS = {"email": "buHead@trust-tower.example", "password": "aaa"}  # BU International (INT)
+
+
+@pytest.fixture(autouse=True)
+def _local_store():
+    """Chaque test repart en mode démo (store local), même si un test a activé le mode API."""
+    yield
+    repo.set_store(None)
 
 
 def _login(client: TestClient, credentials: dict) -> TestClient:

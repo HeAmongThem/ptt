@@ -3,7 +3,7 @@
 from poc_trust_tower.core.model import BusinessUnit
 from poc_trust_tower.core.schemas import BusinessUnitCreateSchema
 
-from ._base import ConflictError, _find, _name_taken, _next_id
+from ._base import ConflictError, _add, _find, _name_taken, _next_id, _remove, _save
 
 # (slug utilisé pour les emails de démonstration, nom)
 _BU_SEED = [("ret", "BU Retail"), ("corp", "BU Corporate"), ("dig", "BU Digital"), ("int", "BU International"), ("serv", "BU Services")]
@@ -18,8 +18,7 @@ def create_business_unit(payload: BusinessUnitCreateSchema) -> BusinessUnit:
     if _name_taken(repoBusinessUnits, payload.name):
         raise ConflictError(f"business unit '{payload.name}' already exists")
     bu = BusinessUnit(id=_next_id(repoBusinessUnits), name=payload.name)
-    repoBusinessUnits.append(bu)
-    return bu
+    return _add("repoBusinessUnits", bu)
 
 
 def update_business_unit(bu_id: int, payload: BusinessUnitCreateSchema) -> BusinessUnit:
@@ -27,7 +26,7 @@ def update_business_unit(bu_id: int, payload: BusinessUnitCreateSchema) -> Busin
     if _name_taken(repoBusinessUnits, payload.name, exclude=bu):
         raise ConflictError(f"business unit '{payload.name}' already exists")
     bu.name = payload.name
-    return bu
+    return _save("repoBusinessUnits", bu)
 
 
 def delete_business_unit(bu_id: int) -> None:
@@ -39,4 +38,4 @@ def delete_business_unit(bu_id: int) -> None:
         raise ConflictError(f"business unit {bu_id} is used by users")
     if any(i.business_unit is bu for i in repoIndicators):
         raise ConflictError(f"business unit {bu_id} is used by indicators")
-    repoBusinessUnits.remove(bu)
+    _remove("repoBusinessUnits", bu)

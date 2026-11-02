@@ -6,8 +6,8 @@ from typing import Literal
 from poc_trust_tower.core.model import Category, CertificationStatus, Indicator, User
 from poc_trust_tower.core.schemas import IndicatorCreateSchema
 
-from ._base import _NOW, _find, _next_id
-from .audits import _record_audit, _record_diff, _snapshot
+from ._base import _NOW, _add, _find, _next_id, _remove, _save
+from .audits import _changes, _record_audit, _snapshot
 from .business_units import get_business_unit, repoBusinessUnits
 from .categories import repoCategories
 
@@ -133,27 +133,30 @@ def create_indicator(
         **payload.model_dump(exclude={"category_id", "business_unit_id"}),
     )
     indicator.variation = _compute_variation(indicator.value, indicator.value_previous)
-    repoIndicators.append(indicator)
+    indicator = _add("repoIndicators", indicator)
     changes = [("", "", indicator.description_action_expected)]
     if source_url:
         # Lien vers le fichier source archivé (ex. dépôt SharePoint du fichier d'import).
         changes.append(("source_file", "", source_url))
     _record_audit(indicator.id, actor, action, changes)
-    return indicator
+    return get_indicator(indicator.id)
 
 
 def update_indicator(indicator_id: int, payload: IndicatorCreateSchema, actor: User | None = None) -> Indicator:
     indicator = get_indicator(indicator_id)
     before = _snapshot(indicator)
     _apply_indicator_payload(indicator, payload)
-    _record_diff(indicator, before, actor, "updated")
-    return indicator
+    changes = _changes(indicator, before)
+    indicator = _save("repoIndicators", indicator)
+    _record_audit(indicator.id, actor, "updated", changes)
+    return get_indicator(indicator.id)
 
 
 def delete_indicator(indicator_id: int, actor: User | None = None) -> None:
     from .campaign_indicators import repoCampaignIndicators  # import paresseux : évite un cycle
 
     indicator = get_indicator(indicator_id)
-    repoCampaignIndicators[:] = [l for l in repoCampaignIndicators if l.indicateur_id != indicator.id]
-    repoIndicators.remove(indicator)
+    for link in [l for l in repoCampaignIndicators if l.indicateur_id == indicator.id]:
+        _remove("repoCampaignIndicators", link)
+    _remove("repoIndicators", indicator)
     _record_audit(indicator.id, actor, "deleted", [("", indicator.description_action_expected, "")])

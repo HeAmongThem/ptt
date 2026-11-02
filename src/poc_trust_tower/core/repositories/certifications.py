@@ -5,8 +5,8 @@ from datetime import datetime
 from poc_trust_tower.core.model import ROLE, Indicator, User
 from poc_trust_tower.core.schemas import CertificationSchema
 
-from ._base import ForbiddenError
-from .audits import _record_diff, _snapshot
+from ._base import ForbiddenError, _save
+from .audits import _changes, _record_audit, _snapshot
 from .campaign_indicators import indicator_in_active_campaign
 from .indicators import get_indicator, repoIndicators
 
@@ -41,9 +41,13 @@ def certify_indicator(indicator_id: int, user: User, payload: CertificationSchem
     before = _snapshot(indicator)
     setattr(indicator, status_field, payload.status)
     setattr(indicator, comment_field, payload.comment)
-    if _record_diff(indicator, before, user, "certified"):
-        indicator.updated_at = datetime.now()
-    return indicator
+    changes = _changes(indicator, before)
+    if not changes:
+        return indicator
+    indicator.updated_at = datetime.now()
+    indicator = _save("repoIndicators", indicator)
+    _record_audit(indicator.id, user, "certified", changes)
+    return get_indicator(indicator.id)
 
 
 # Périmètre de visibilité ==============================================

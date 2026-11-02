@@ -4,7 +4,7 @@ from poc_trust_tower.core.model import ROLE, User
 from poc_trust_tower.core.schemas import PasswordChangeSchema, UserCreateSchema, UserUpdateSchema
 from poc_trust_tower.core.security import DEMO_ROUNDS, hash_password, verify_password
 
-from ._base import ConflictError, ForbiddenError, _find, _next_id
+from ._base import ConflictError, ForbiddenError, _add, _find, _next_id, _remove, _save
 from .business_units import _BU_SEED, get_business_unit, repoBusinessUnits
 
 def _demo_hash(password: str) -> str:
@@ -41,8 +41,7 @@ def create_user(payload: UserCreateSchema) -> User:
         business_unit=get_business_unit(payload.business_unit_id),
         role=payload.role,
     )
-    repoUsers.append(user)
-    return user
+    return _add("repoUsers", user)
 
 
 def update_user(user_id: int, payload: UserUpdateSchema) -> User:
@@ -54,7 +53,7 @@ def update_user(user_id: int, payload: UserUpdateSchema) -> User:
     user.role = payload.role
     if payload.password:
         user.password = hash_password(payload.password)
-    return user
+    return _save("repoUsers", user)
 
 
 def change_password(user: User, payload: PasswordChangeSchema) -> None:
@@ -62,7 +61,8 @@ def change_password(user: User, payload: PasswordChangeSchema) -> None:
     if not verify_password(payload.current_password, user.password):
         raise ForbiddenError("current password is incorrect")
     user.password = hash_password(payload.new_password)
+    _save("repoUsers", user)
 
 
 def delete_user(user_id: int) -> None:
-    repoUsers.remove(get_user(user_id))
+    _remove("repoUsers", get_user(user_id))

@@ -3,7 +3,7 @@
 from poc_trust_tower.core.model import Category
 from poc_trust_tower.core.schemas import CategoryCreateSchema
 
-from ._base import ConflictError, _find, _name_taken, _next_id
+from ._base import ConflictError, _add, _find, _name_taken, _next_id, _remove, _save
 
 repoCategories: list[Category] = [
     Category(id=index, name=name)
@@ -17,8 +17,7 @@ def create_category(payload: CategoryCreateSchema) -> Category:
     if _name_taken(repoCategories, payload.name):
         raise ConflictError(f"category '{payload.name}' already exists")
     category = Category(id=_next_id(repoCategories), name=payload.name)
-    repoCategories.append(category)
-    return category
+    return _add("repoCategories", category)
 
 
 def update_category(category_id: int, payload: CategoryCreateSchema) -> Category:
@@ -26,7 +25,7 @@ def update_category(category_id: int, payload: CategoryCreateSchema) -> Category
     if _name_taken(repoCategories, payload.name, exclude=category):
         raise ConflictError(f"category '{payload.name}' already exists")
     category.name = payload.name
-    return category
+    return _save("repoCategories", category)
 
 
 def delete_category(category_id: int) -> None:
@@ -35,4 +34,4 @@ def delete_category(category_id: int) -> None:
     category = _find(repoCategories, category_id, "category")
     if any(i.category is category for i in repoIndicators):
         raise ConflictError(f"category {category_id} is used by indicators")
-    repoCategories.remove(category)
+    _remove("repoCategories", category)

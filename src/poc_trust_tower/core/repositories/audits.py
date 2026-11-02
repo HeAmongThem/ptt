@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from poc_trust_tower.core.model import ROLE, BusinessUnit, Category, Indicator, IndicatorAudit, User
 
-from ._base import _NOW, _next_id
+from ._base import _NOW, _add, _next_id
 
 repoIndicatorAudits: list[IndicatorAudit] = []
 
@@ -93,7 +93,8 @@ def _snapshot(indicator: Indicator) -> dict[str, str]:
 def _record_audit(indicator_id: int, actor: User | None, action: str, changes: list[tuple[str, str, str]]) -> None:
     now = datetime.now()
     for field, old, new in changes:
-        repoIndicatorAudits.append(
+        _add(
+            "repoIndicatorAudits",
             IndicatorAudit(
                 id=_next_id(repoIndicatorAudits),
                 indicator_id=indicator_id,
@@ -104,13 +105,18 @@ def _record_audit(indicator_id: int, actor: User | None, action: str, changes: l
                 old_value=old,
                 new_value=new,
                 timestamp=now,
-            )
+            ),
         )
 
 
-def _record_diff(indicator: Indicator, before: dict[str, str], actor: User | None, action: str) -> list[str]:
+def _changes(indicator: Indicator, before: dict[str, str]) -> list[tuple[str, str, str]]:
+    """Différences (champ, avant, après) entre l'instantané `before` et l'état courant."""
     after = _snapshot(indicator)
-    changes = [(f, before[f], after[f]) for f in AUDITED_FIELDS if before[f] != after[f]]
+    return [(f, before[f], after[f]) for f in AUDITED_FIELDS if before[f] != after[f]]
+
+
+def _record_diff(indicator: Indicator, before: dict[str, str], actor: User | None, action: str) -> list[str]:
+    changes = _changes(indicator, before)
     _record_audit(indicator.id, actor, action, changes)
     return [c[0] for c in changes]
 

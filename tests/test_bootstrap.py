@@ -43,7 +43,7 @@ def test_load_from_api_posts_json_and_rebuilds_repos(snapshot) -> None:
 
     import json
     assert calls[0].method == "POST" and calls[0].headers["content-type"] == "application/json"
-    assert isinstance(json.loads(calls[0].read()), dict)  # corps JSON
+    assert json.loads(calls[0].read()) == {"command": "fetch", "repo_name": "all"}
     assert counts["repoIndicators"] == 3 and counts["repoBusinessUnits"] == 6
     assert repo.get_business_unit(99).name == "BU Test"
     assert len(repo.repoIndicators) == 3
@@ -103,7 +103,7 @@ def test_build_state_settings_defaults_and_validation(snapshot) -> None:
 def test_fetch_state_errors() -> None:
     with pytest.raises(bootstrap.BootstrapError, match="TRUST_TOWER_API"):
         bootstrap.fetch_state("")
-    with pytest.raises(bootstrap.BootstrapError, match="impossible"):
+    with pytest.raises(bootstrap.BootstrapError, match="HTTP 500"):
         bootstrap.fetch_state("http://api.test/run", transport=_api({}, status=500))
 
     def offline(request):
@@ -122,6 +122,8 @@ def test_initialize_skips_api_in_demo_mode(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_initialize_calls_api_when_demo_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    from poc_trust_tower.core import sync
+
     monkeypatch.setenv("DEMO", "false")
     monkeypatch.setenv("TRUST_TOWER_API", "http://api.test/run")
     seen: list[str] = []
@@ -129,7 +131,12 @@ def test_initialize_calls_api_when_demo_false(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(bootstrap, "_initialized", False)
     assert bootstrap.initialize() == {"repoIndicators": 0}
     assert seen == ["http://api.test/run"]
+    assert sync.is_api_mode()  # les écritures passent désormais par l'API
     assert bootstrap.initialize() is None  # déjà initialisé
+
+    monkeypatch.setenv("DEMO", "true")
+    assert bootstrap.initialize() is None
+    assert not sync.is_api_mode()
 
 
 def test_main_blocks_when_api_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
