@@ -69,14 +69,21 @@ def load_sharepoint_config() -> SharePointConfig:
 
 @dataclass(frozen=True)
 class DataConfig:
-    """Source des données : jeu de démonstration intégré (DEMO=true) ou API Trust Tower."""
+    """Source des données : jeu de démonstration intégré (DEMO=true) ou API Trust Tower.
+
+    En mode API, si URL_TOKEN est définie, un jeton est demandé au démarrage
+    (POST {"secret": CLIENT_SECRET}) et envoyé en `Authorization: Bearer` à l'API."""
 
     demo: bool
     api_url: str
+    token_url: str = ""
+    client_secret: str = ""
 
 
 def load_data_config() -> DataConfig:
     return DataConfig(
         demo=_as_bool(os.environ.get("DEMO"), default=True),
         api_url=os.environ.get("TRUST_TOWER_API", "").strip(),
+        token_url=os.environ.get("URL_TOKEN", "").strip(),
+        client_secret=os.environ.get("CLIENT_SECRET", "").strip(),
     )

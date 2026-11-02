@@ -3,7 +3,7 @@ import copy
 import httpx
 import pytest
 
-from poc_trust_tower.core import bootstrap
+from poc_trust_tower.core import api_client, bootstrap
 from poc_trust_tower.core import repository as repo
 from poc_trust_tower.core.security import verify_password
 
@@ -126,12 +126,14 @@ def test_initialize_calls_api_when_demo_false(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setenv("DEMO", "false")
     monkeypatch.setenv("TRUST_TOWER_API", "http://api.test/run")
-    seen: list[str] = []
-    monkeypatch.setattr(bootstrap, "load_from_api", lambda url: (seen.append(url), {"repoIndicators": 0})[1])
+    monkeypatch.delenv("URL_TOKEN", raising=False)
+    seen: list[tuple] = []
+    monkeypatch.setattr(bootstrap, "load_from_api", lambda url, token=None: (seen.append((url, token)), {"repoIndicators": 0})[1])
     monkeypatch.setattr(bootstrap, "_initialized", False)
     assert bootstrap.initialize() == {"repoIndicators": 0}
-    assert seen == ["http://api.test/run"]
+    assert seen == [("http://api.test/run", None)]  # pas d'URL_TOKEN : pas de jeton
     assert sync.is_api_mode()  # les écritures passent désormais par l'API
+    assert "Authorization" not in sync.get_store().api.headers
     assert bootstrap.initialize() is None  # déjà initialisé
 
     monkeypatch.setenv("DEMO", "true")
@@ -139,11 +141,72 @@ def test_initialize_calls_api_when_demo_false(monkeypatch: pytest.MonkeyPatch) -
     assert not sync.is_api_mode()
 
 
+def test_fetch_token_posts_secret_and_returns_bearer() -> None:
+    calls: list[httpx.Request] = []
+    token = api_client.fetch_token(
+        "http://api.test/token", "s3cret",
+        transport=_api({"access_token": "abc", "token_type": "Bearer", "expires_in": 3600}, calls),
+    )
+    import json
+    assert token == "Bearer abc"
+    assert calls[0].method == "POST" and json.loads(calls[0].read()) == {"secret": "s3cret"}
+
+    with pytest.raises(api_client.ApiError, match="URL_TOKEN"):
+        api_client.fetch_token("", "s3cret")
+    with pytest.raises(api_client.ApiError, match=r"HTTP 401.*secret invalide"):
+        api_client.fetch_token("http://api.test/token", "bad", transport=_api({"error": "invalid_client", "error_description": "secret invalide"}, status=401))
+    with pytest.raises(api_client.ApiError, match="sans access_token"):
+        api_client.fetch_token("http://api.test/token", "s3cret", transport=_api({"expires_in": 10}))
+
+
+def test_api_client_sends_token_in_authorization_header() -> None:
+    calls: list[httpx.Request] = []
+    api = api_client.TrustTowerApi("http://api.test/run", transport=_api({"repoCampaigns": []}, calls), token="Bearer abc")
+    api.fetch_all()
+    assert calls[0].headers["authorization"] == "Bearer abc"
+    assert "authorization" not in api_client.TrustTowerApi("http://api.test/run").headers
+
+
+def test_initialize_acquires_token_and_passes_it_to_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    from poc_trust_tower.core import sync
+
+    monkeypatch.setenv("DEMO", "false")
+    monkeypatch.setenv("TRUST_TOWER_API", "http://api.test/run")
+    monkeypatch.setenv("URL_TOKEN", "http://api.test/token")
+    monkeypatch.setenv("CLIENT_SECRET", "s3cret")
+    monkeypatch.setattr(bootstrap, "_initialized", False)
+    asked: list[tuple] = []
+    monkeypatch.setattr(bootstrap, "fetch_token", lambda url, secret: (asked.append((url, secret)), "Bearer xyz")[1])
+    seen: list[tuple] = []
+    monkeypatch.setattr(bootstrap, "load_from_api", lambda url, token=None: (seen.append((url, token)), {})[1])
+
+    assert bootstrap.initialize() == {}
+    assert asked == [("http://api.test/token", "s3cret")]
+    assert seen == [("http://api.test/run", "Bearer xyz")]
+    assert sync.get_store().api.headers["Authorization"] == "Bearer xyz"
+
+
+def test_initialize_blocks_when_token_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEMO", "false")
+    monkeypatch.setenv("TRUST_TOWER_API", "http://api.test/run")
+    monkeypatch.setenv("URL_TOKEN", "http://api.test/token")
+    monkeypatch.setattr(bootstrap, "_initialized", False)
+    monkeypatch.setattr(bootstrap, "load_from_api", lambda url, token=None: pytest.fail("ne doit pas être appelé"))
+
+    def refused(url, secret):
+        raise api_client.ApiError("API Trust Tower : token a échoué (HTTP 401) : secret invalide", status_code=401)
+
+    monkeypatch.setattr(bootstrap, "fetch_token", refused)
+    with pytest.raises(bootstrap.BootstrapError, match="authentification.*refusée.*secret invalide"):
+        bootstrap.initialize()
+
+
 def test_main_blocks_when_api_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     import poc_trust_tower.main as main
 
     monkeypatch.setenv("DEMO", "false")
     monkeypatch.setenv("TRUST_TOWER_API", "http://127.0.0.1:1/run")
+    monkeypatch.delenv("URL_TOKEN", raising=False)
     monkeypatch.setattr(bootstrap, "_initialized", False)
     messages: list[str] = []
     monkeypatch.setattr(main, "fail_and_exit", lambda message: (messages.append(message), (_ for _ in ()).throw(SystemExit(1))))

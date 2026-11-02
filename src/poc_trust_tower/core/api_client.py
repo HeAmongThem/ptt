@@ -6,6 +6,10 @@ Toutes les commandes sont des POST JSON sur une URL unique :
     {"command": "update", "repo_name": "<repo>", "item": {"id": 1, ...}}
     {"command": "delete", "repo_name": "<repo>", "item": {"id": 1}}
 Une erreur est signalée par un statut HTTP 4xx/5xx avec {"error": "..."}.
+
+Authentification (optionnelle) : `fetch_token` appelle URL_TOKEN avec {"secret": CLIENT_SECRET}
+et reçoit une réponse de style OAuth ({"access_token": "...", "token_type": "Bearer"}) ;
+le jeton est ensuite envoyé dans l'en-tête Authorization de chaque commande.
 """
 
 from __future__ import annotations
@@ -25,13 +29,36 @@ class ApiError(RuntimeError):
         self.status_code = status_code
 
 
+def fetch_token(token_url: str, client_secret: str, transport: httpx.BaseTransport | None = None, timeout: float = 30) -> str:
+    """Demande un jeton d'accès ; renvoie la valeur à placer dans `Authorization` (ex. "Bearer xyz")."""
+    if not token_url:
+        raise ApiError("URL_TOKEN n'est pas définie dans le fichier .env.")
+    try:
+        with httpx.Client(timeout=timeout, transport=transport) as client:
+            response = client.post(token_url, json={"secret": client_secret}, headers=HEADERS)
+    except httpx.HTTPError as exc:
+        raise ApiError(f"récupération du jeton impossible ({token_url}) : {exc}") from exc
+    if response.is_error:
+        raise ApiError(_error_message(response, "token", token_url), status_code=response.status_code)
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ApiError(f"réponse du serveur de jetons non JSON ({token_url})") from exc
+    token = body.get("access_token") or body.get("token") if isinstance(body, dict) else None
+    if not token:
+        raise ApiError(f"réponse du serveur de jetons sans access_token ({token_url})")
+    token_type = str(body.get("token_type") or "Bearer") if isinstance(body, dict) else "Bearer"
+    return f"{token_type} {token}"
+
+
 class TrustTowerApi:
-    def __init__(self, url: str, transport: httpx.BaseTransport | None = None, timeout: float = 30):
+    def __init__(self, url: str, transport: httpx.BaseTransport | None = None, timeout: float = 30, token: str | None = None):
         if not url:
             raise ApiError("DEMO=false mais TRUST_TOWER_API n'est pas définie dans le fichier .env.")
         self.url = url
         self._transport = transport
         self._timeout = timeout
+        self.headers = {**HEADERS, **({"Authorization": token} if token else {})}
 
     def command(self, command: str, repo_name: str, item: dict[str, Any] | None = None) -> Any:
         payload: dict[str, Any] = {"command": command, "repo_name": repo_name}
@@ -39,7 +66,7 @@ class TrustTowerApi:
             payload["item"] = item
         try:
             with httpx.Client(timeout=self._timeout, transport=self._transport) as client:
-                response = client.post(self.url, json=payload, headers=HEADERS)
+                response = client.post(self.url, json=payload, headers=self.headers)
         except httpx.HTTPError as exc:
             raise ApiError(f"appel de l'API Trust Tower impossible ({self.url}) : {exc}") from exc
         if response.is_error:
@@ -85,7 +112,7 @@ def _error_message(response: httpx.Response, command: str, repo_name: str) -> st
     try:
         body = response.json()
         if isinstance(body, dict):
-            detail = str(body.get("error") or body.get("detail") or "")
+            detail = str(body.get("error_description") or body.get("error") or body.get("detail") or "")
     except ValueError:
         detail = response.text[:200]
     return f"API Trust Tower : {command} {repo_name} a échoué (HTTP {response.status_code})" + (f" : {detail}" if detail else "")

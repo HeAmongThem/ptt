@@ -50,7 +50,7 @@ def fail_and_exit(message: str) -> None:
     body = f"""<!doctype html><html lang="fr"><body style="font-family: system-ui; padding: 2rem; color: #842029; background: #f8d7da">
     <h1 style="font-size: 1.25rem">Trust Tower ne peut pas démarrer</h1>
     <p>{html.escape(message)}</p>
-    <p style="color: #333">Vérifiez la configuration du fichier .env (DEMO, TRUST_TOWER_API, SHAREPOINT_*), puis relancez l'application.</p>
+    <p style="color: #333">Vérifiez la configuration du fichier .env (DEMO, TRUST_TOWER_API, URL_TOKEN, CLIENT_SECRET, SHAREPOINT_*), puis relancez l'application.</p>
     </body></html>"""
     webview.create_window("Trust Tower — erreur", html=body, width=640, height=320)
     webview.start()

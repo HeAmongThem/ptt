@@ -22,7 +22,7 @@ from typing import Any
 import httpx
 
 from poc_trust_tower.core import repository as repo
-from poc_trust_tower.core.api_client import ApiError, TrustTowerApi
+from poc_trust_tower.core.api_client import ApiError, TrustTowerApi, fetch_token
 from poc_trust_tower.core.model import (
     ROLE,
     BusinessUnit,
@@ -221,16 +221,16 @@ def apply_state(state: dict[str, Any]) -> None:
 
 
 # Chargement depuis l'API ================================================
-def fetch_state(api_url: str, transport: httpx.BaseTransport | None = None, timeout: float = 30) -> dict[str, Any]:
+def fetch_state(api_url: str, transport: httpx.BaseTransport | None = None, timeout: float = 30, token: str | None = None) -> dict[str, Any]:
     try:
-        return TrustTowerApi(api_url, transport=transport, timeout=timeout).fetch_all()
+        return TrustTowerApi(api_url, transport=transport, timeout=timeout, token=token).fetch_all()
     except ApiError as exc:
         raise BootstrapError(str(exc)) from exc
 
 
-def load_from_api(api_url: str, transport: httpx.BaseTransport | None = None) -> dict[str, int]:
+def load_from_api(api_url: str, transport: httpx.BaseTransport | None = None, token: str | None = None) -> dict[str, int]:
     """Charge l'état depuis l'API et l'applique ; renvoie le nombre d'éléments par repo."""
-    state = build_state(fetch_state(api_url, transport=transport))
+    state = build_state(fetch_state(api_url, transport=transport, token=token))
     apply_state(state)
     counts = {k: len(v) for k, v in state.items()}
     log.info("Données chargées depuis %s : %s", api_url, counts)
@@ -238,6 +238,19 @@ def load_from_api(api_url: str, transport: httpx.BaseTransport | None = None) ->
 
 
 _initialized = False
+
+
+def acquire_token(config) -> str | None:
+    """Jeton d'accès à l'API si URL_TOKEN est définie ; bloque le démarrage si le serveur de jetons refuse."""
+    if not config.token_url:
+        log.info("URL_TOKEN non définie : appels à l'API Trust Tower sans jeton.")
+        return None
+    try:
+        token = fetch_token(config.token_url, config.client_secret)
+    except ApiError as exc:
+        raise BootstrapError(f"authentification auprès de l'API Trust Tower refusée : {exc}") from exc
+    log.info("Jeton d'accès à l'API Trust Tower obtenu depuis %s.", config.token_url)
+    return token
 
 
 def initialize(force: bool = False) -> dict[str, int] | None:
@@ -254,7 +267,8 @@ def initialize(force: bool = False) -> dict[str, int] | None:
         return None
     if _initialized and not force:
         return None
-    counts = load_from_api(config.api_url)
-    sync.install(TrustTowerApi(config.api_url))
+    token = acquire_token(config)
+    counts = load_from_api(config.api_url, token=token)
+    sync.install(TrustTowerApi(config.api_url, token=token))
     _initialized = True
     return counts
