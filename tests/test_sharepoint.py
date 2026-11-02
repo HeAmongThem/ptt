@@ -38,6 +38,21 @@ def test_dotenv_is_loaded() -> None:
 
 
 # Détection de l'authentification =======================================
+def test_frozen_app_points_playwright_to_user_browser_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
+    sharepoint.configure_browsers_path()
+    assert "PLAYWRIGHT_BROWSERS_PATH" not in sharepoint.os.environ  # depuis les sources : comportement Playwright standard
+
+    monkeypatch.setattr(sharepoint.sys, "frozen", True, raising=False)
+    sharepoint.configure_browsers_path()
+    assert sharepoint.os.environ["PLAYWRIGHT_BROWSERS_PATH"] == str(sharepoint._default_browsers_path())
+    assert sharepoint.os.environ["PLAYWRIGHT_BROWSERS_PATH"].endswith("ms-playwright")
+
+    monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", "/opt/browsers")
+    sharepoint.configure_browsers_path()
+    assert sharepoint.os.environ["PLAYWRIGHT_BROWSERS_PATH"] == "/opt/browsers"  # valeur explicite respectée
+
+
 def test_is_authenticated_requires_site_host_and_cookies() -> None:
     host = "okmitconsulting.sharepoint.com"
     cookies = {"FedAuth": "a", "rtFa": "b"}

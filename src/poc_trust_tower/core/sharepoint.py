@@ -10,8 +10,11 @@ Flux :
 from __future__ import annotations
 
 import logging
+import os
+import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 import httpx
@@ -100,6 +103,23 @@ class SharePointSession:
 
 
 # Connexion interactive ==================================================
+def _default_browsers_path() -> Path:
+    """Dossier où `playwright install` dépose les navigateurs (même logique que Playwright)."""
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "ms-playwright"
+    if sys.platform == "win32":
+        return Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "ms-playwright"
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "ms-playwright"
+
+
+def configure_browsers_path() -> None:
+    """Dans un binaire PyInstaller, Playwright force PLAYWRIGHT_BROWSERS_PATH=0 (navigateurs attendus
+    dans le paquet). On le pointe vers le cache utilisateur standard, où `playwright install chromium`
+    les installe, sauf si la variable est déjà définie."""
+    if getattr(sys, "frozen", False) and not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(_default_browsers_path())
+
+
 def _is_authenticated(page_url: str, cookies: dict[str, str], site_host: str) -> bool:
     host = urlsplit(page_url).netloc
     if host in LOGIN_HOSTS or host != site_host:
@@ -121,13 +141,15 @@ def login_interactive(config: SharePointConfig) -> SharePointSession:
 
     site_host = urlsplit(config.site_url).netloc
     deadline = time.monotonic() + config.login_timeout
+    configure_browsers_path()
     try:
         with sync_playwright() as playwright:
             try:
                 browser = playwright.chromium.launch(headless=False)
             except PlaywrightError as exc:
                 raise SharePointAuthError(
-                    "Chromium indisponible pour Playwright : exécutez `uv run playwright install chromium`."
+                    "Chromium indisponible pour Playwright : exécutez `playwright install chromium` "
+                    f"(`uv run playwright install chromium` depuis les sources). Détail : {_first_line(exc)}"
                 ) from exc
             context = browser.new_context()
             page = context.new_page()
@@ -147,6 +169,11 @@ def login_interactive(config: SharePointConfig) -> SharePointSession:
     raise SharePointAuthError(
         f"Authentification SharePoint non réalisée dans le délai de {config.login_timeout} s."
     )
+
+
+def _first_line(exc: BaseException) -> str:
+    text = str(exc).strip()
+    return text.splitlines()[0] if text else repr(exc)
 
 
 # État partagé de l'application =========================================
