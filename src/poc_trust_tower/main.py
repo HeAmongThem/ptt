@@ -56,17 +56,29 @@ def fail_and_exit(message: str) -> None:
     webview.start()
     sys.exit(1)
 
-def app_load_env() -> None: 
-    # .env à la racine du projet (cwd) ou à côté du package ; les variables déjà définies priment.
-    for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"):
+def env_candidates() -> list[Path]:
+    """Emplacements du fichier .env : dossier courant, dossier de l'exécutable (binaire PyInstaller),
+    racine du projet (exécution depuis les sources)."""
+    candidates = [Path.cwd() / ".env"]
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / ".env")
+    else:
+        candidates.append(Path(__file__).resolve().parents[2] / ".env")
+    return candidates
+
+
+def app_load_env() -> None:
+    # Les variables déjà définies dans l'environnement priment.
+    for candidate in env_candidates():
         if candidate.is_file():
             load_dotenv(candidate, override=False)
+            logging.info("Configuration chargée depuis %s", candidate)
             break
 
 def main() -> None:
-    app_load_env()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    app_load_env()
     load_data()
     connect_sharepoint()
     server = uvicorn.Server(
